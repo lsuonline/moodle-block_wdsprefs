@@ -21,6 +21,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+// TODO: Think about my own DB table to store this data.
+
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'block_wdsprefs';
