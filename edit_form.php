@@ -23,7 +23,7 @@
 
 require_once("$CFG->libdir/formslib.php");
 
-class wdsprefs_edit_form extends moodleform {
+class wdsprefs_cps_edit_form extends moodleform {
 
     /// The standard Moodle form stuff.
     public function definition() {

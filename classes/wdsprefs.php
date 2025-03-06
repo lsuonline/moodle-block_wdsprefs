@@ -21,12 +21,26 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-// TODO: Think about my own DB table to store this data.
+class wdsprefs {
 
-defined('MOODLE_INTERNAL') || die();
+    public static function get_instructor($user) : bool {
+        global $DB;
 
-$plugin->component = 'block_wdsprefs';
-$plugin->version   = 2025030600;
-$plugin->requires  = 2023112800;
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = '0.2';
+        // Get a bool if they exist in this table or not.
+        $instructor = $DB->record_exists('enrol_wds_teachers', ['userid' => $user->id]);
+
+        // Return the value.
+        return $instructor;
+    }
+
+    public static function get_student($user) : bool {
+        global $DB;
+
+        // Get a bool if they exist in this table or not.
+        $student = $DB->record_exists('enrol_wds_students', ['userid' => $user->id]);
+
+        // Return the value.
+        return $student;
+    }
+
+}

@@ -30,7 +30,19 @@ class block_wdsprefs extends block_base {
 
     // Function for getting content.
     public function get_content() {
-        global $USER, $OUTPUT;
+        global $CFG, $PAGE, $USER, $OUTPUT;
+
+        require_once($CFG->dirroot . '/blocks/wdsprefs/classes/wdsprefs.php');
+
+        // Is the user an instructor?
+        $instructor = wdsprefs::get_instructor($USER);
+
+        // Is the user a student?
+        $student = wdsprefs::get_student($USER);
+
+        // TODO: take this out! For testing only!
+        $student = true;
+        $instructor = true;
 
         // If we have nothing, do not show the block.
         if ($this->content !== null) {
@@ -43,21 +55,86 @@ class block_wdsprefs extends block_base {
         // Ensure $USER is not null before accessing properties.
         $userid = isset($USER->id) ? $USER->id : 0;
 
-        // Get existing preference.
-        $currentpref = get_user_preferences('wdspref_daysprior', '', $userid);
+        // Build out the list of items for everyone.
+        $genericitems = [
+            [
+                'text' => get_string('wdsprefs:user', 'block_wdsprefs'),
+                'url' => new moodle_url('/blocks/wdsprefs/userview.php'),
+                'icon' => 'fa-user'
+            ],
+        ];
 
-        // Define the url for the form view.
-        $formurl = new moodle_url('/blocks/wdsprefs/view.php');
+        // Build out other priveleged items.
+        $privelegeditems = [
+            [
+                'text' => get_string('wdsprefs:schedule', 'block_wdsprefs'),
+                'url' => new moodle_url('/blocks/wdsprefs/scheduleview.php'),
+                'icon' => 'fa-calendar-check-o'
+            ],
+        ];
 
-        // Define block content.
-        $this->content->text = '<p>' .
-            get_string('wdsprefs:daysprior', 'block_wdsprefs') .
-            ': <strong>' . s($currentpref) . '</strong></p>';
 
-        // Add the link to the user prefs page.
-        $this->content->text .= '<a href="' . $formurl . '">' .
-            get_string('wdsprefs:editprefs', 'block_wdsprefs') .
-            '</a>';
+        // Build out the list of items for faculty.
+        $facultyitems = [
+            [
+                'text' => get_string('wdsprefs:course', 'block_wdsprefs'),
+                'url' => new moodle_url('/blocks/wdsprefs/courseview.php'),
+                'icon' => 'fa-graduation-cap'
+            ],
+            [
+                'text' => get_string('wdsprefs:unwant', 'block_wdsprefs'),
+                'url' => new moodle_url('/blocks/wdsprefs/unwantview.php'),
+                'icon' => 'fa-crosshairs'
+            ],
+            [
+                'text' => get_string('wdsprefs:split', 'block_wdsprefs'),
+                'url' => new moodle_url('/blocks/wdsprefs/splitview.php'),
+                'icon' => 'fa-clone'
+            ],
+            [
+                'text' => get_string('wdsprefs:crosslist', 'block_wdsprefs'),
+                'url' => new moodle_url('/blocks/wdsprefs/crosslistview.php'),
+                'icon' => 'fa-link'
+            ],
+            [
+                'text' => get_string('wdsprefs:teamteach', 'block_wdsprefs'),
+                'url' => new moodle_url('/blocks/wdsprefs/teamteachview.php'),
+                'icon' => 'fa-group'
+            ],
+        ];
+
+        // Set this up for later.
+        $listitems = '';
+
+        // If we're teaching a course.
+        if ($instructor) {
+            // Loop through all the faculty items.
+            foreach ($facultyitems as $item) {
+                $icon = html_writer::tag('i', '', ['class' => 'fa ' . $item['icon'], 'aria-hidden' => 'true']);
+                $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'menu-link']);
+                $listitems .= html_writer::tag('li', $link, ['class' => 'menu-item']);
+            }
+        }
+
+        // If we're either an instructor or a student.
+        if ($instructor || $student) {
+            // Loop through all the priveleged items.
+            foreach ($privelegeditems as $item) {
+                $icon = html_writer::tag('i', '', ['class' => 'fa ' . $item['icon'], 'aria-hidden' => 'true']);
+                $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'menu-link']);
+                $listitems .= html_writer::tag('li', $link, ['class' => 'menu-item']);
+            }
+        }
+
+        // Append these to the end.
+        foreach ($genericitems as $item) {
+            $icon = html_writer::tag('i', '', ['class' => 'fa ' . $item['icon'], 'aria-hidden' => 'true']);
+            $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'menu-link']);
+            $listitems .= html_writer::tag('li', $link, ['class' => 'menu-item']);
+        }
+
+        // Build out the unordered list.
+        $this->content->text = html_writer::tag('ul', $listitems, ['class' => 'menu-list']);
 
         return $this->content;
     }

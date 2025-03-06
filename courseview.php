@@ -36,16 +36,16 @@ $context = context_system::instance();
 
 // Set the context and other page stuff.
 $PAGE->set_context($context);
-$PAGE->set_url(new moodle_url('/blocks/wdsprefs/view.php'));
-$PAGE->set_title(get_string('wdsprefs:editprefs', 'block_wdsprefs'));
-$PAGE->set_heading(get_string('wdsprefs:editprefs', 'block_wdsprefs'));
+$PAGE->set_url(new moodle_url('/blocks/wdsprefs/courseview.php'));
+$PAGE->set_title(get_string('wdsprefs:course', 'block_wdsprefs'));
+$PAGE->set_heading(get_string('wdsprefs:course', 'block_wdsprefs'));
 $PAGE->set_pagelayout('standard');
 
 // Get the userid from the USER object.
 $userid = $USER->id;
 
 // Define the form.
-$mform = new wdsprefs_edit_form();
+$mform = new wdsprefs_cps_edit_form();
 
 // If form is cancelled.
 if ($mform->is_cancelled()) {

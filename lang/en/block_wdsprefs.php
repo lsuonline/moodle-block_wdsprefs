@@ -21,12 +21,24 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-// Build out the strings!
-$string['wdsprefs:pluginname'] = 'WorkDay Student Preferences';
-$string['wdsprefs:editprefs'] = 'Edit Preferences';
-$string['wdsprefs:saveprefs'] = 'Save Preferences';
+// Plugin stuff.
+$string['wdsprefs:pluginname'] = 'WDS Preferences';
+
+// Basic stuff.
 $string['wdsprefs:cancel'] = 'Preference modification cancelled.';
-$string['wdsprefs:success'] = 'Preferences saved successfully!';
 $string['wdsprefs:error'] = 'Error saving preferences!';
+$string['wdsprefs:saveprefs'] = 'Save Preferences';
+$string['wdsprefs:success'] = 'Preferences saved successfully!';
+
+// Link stuff.
+$string['wdsprefs:course'] = 'Course preferences';
+$string['wdsprefs:crosslist'] = 'Cross listing';
+$string['wdsprefs:split'] = 'Split courses';
+$string['wdsprefs:schedule'] = 'Course schedule';
+$string['wdsprefs:teamteach'] = 'Team teaching';
+$string['wdsprefs:unwant'] = 'Unwanted courses';
+$string['wdsprefs:user'] = 'User preferences';
+
+// Page strings.
 $string['wdsprefs:daysprior'] = 'Days Prior';
 $string['wdsprefs:daysprior_desc'] = 'Number of days prior to the semester starting to enroll students.';
