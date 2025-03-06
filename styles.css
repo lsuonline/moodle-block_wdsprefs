@@ -1,20 +1,29 @@
-.menu-list {
+.wds.menu-list {
     list-style: none;
     padding: 0;
 }
 
-.menu-item {
+.wds .menu-item {
 }
 
-.menu-link {
+.wds .menu-link {
     text-decoration: none;
 }
 
-.menu-link:hover {
+.wds .menu-link:hover {
     text-decoration: underline;
 }
 
-.fa {
+.wds .fa {
+    color: #3a1867;
+}
+
+.wds i.fa {
+    text-align: center;
     width: 1.75em;
 }
 
+.wds a img.fa {
+    text-align: center;
+    width: 1.75em;
+}

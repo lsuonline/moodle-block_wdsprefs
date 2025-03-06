@@ -60,6 +60,7 @@ class block_wdsprefs extends block_base {
             [
                 'text' => get_string('wdsprefs:user', 'block_wdsprefs'),
                 'url' => new moodle_url('/blocks/wdsprefs/userview.php'),
+                'icontype' => 'fontawesome',
                 'icon' => 'fa-user'
             ],
         ];
@@ -69,6 +70,7 @@ class block_wdsprefs extends block_base {
             [
                 'text' => get_string('wdsprefs:schedule', 'block_wdsprefs'),
                 'url' => new moodle_url('/blocks/wdsprefs/scheduleview.php'),
+                'icontype' => 'fontawesome',
                 'icon' => 'fa-calendar-check-o'
             ],
         ];
@@ -79,26 +81,33 @@ class block_wdsprefs extends block_base {
             [
                 'text' => get_string('wdsprefs:course', 'block_wdsprefs'),
                 'url' => new moodle_url('/blocks/wdsprefs/courseview.php'),
+                'icontype' => 'fontawesome',
                 'icon' => 'fa-graduation-cap'
             ],
             [
                 'text' => get_string('wdsprefs:unwant', 'block_wdsprefs'),
                 'url' => new moodle_url('/blocks/wdsprefs/unwantview.php'),
+                'icontype' => 'fontawesome',
                 'icon' => 'fa-crosshairs'
             ],
             [
                 'text' => get_string('wdsprefs:split', 'block_wdsprefs'),
                 'url' => new moodle_url('/blocks/wdsprefs/splitview.php'),
-                'icon' => 'fa-clone'
+                'icontype' => 'svg',
+                'icon' => '<img class="wds icon fa" src="' .
+                    $OUTPUT->image_url('split', 'block_wdsprefs') .
+                    '" alt="crosslist">'
             ],
             [
                 'text' => get_string('wdsprefs:crosslist', 'block_wdsprefs'),
                 'url' => new moodle_url('/blocks/wdsprefs/crosslistview.php'),
+                'icontype' => 'fontawesome',
                 'icon' => 'fa-link'
             ],
             [
                 'text' => get_string('wdsprefs:teamteach', 'block_wdsprefs'),
                 'url' => new moodle_url('/blocks/wdsprefs/teamteachview.php'),
+                'icontype' => 'fontawesome',
                 'icon' => 'fa-group'
             ],
         ];
@@ -110,9 +119,16 @@ class block_wdsprefs extends block_base {
         if ($instructor) {
             // Loop through all the faculty items.
             foreach ($facultyitems as $item) {
-                $icon = html_writer::tag('i', '', ['class' => 'fa ' . $item['icon'], 'aria-hidden' => 'true']);
-                $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'menu-link']);
-                $listitems .= html_writer::tag('li', $link, ['class' => 'menu-item']);
+                if ($item['icontype'] === 'fontawesome') {
+                    $icon=html_writer::tag('i','',
+                        ['class' => 'wds icon fa '.$item['icon'],'aria-hidden' => 'true']
+                    );
+                } else {
+                    $icon=$item['icon'];
+                }
+
+                $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'wds menu-link']);
+                $listitems .= html_writer::tag('li', $link, ['class' => 'wds menu-item']);
             }
         }
 
@@ -120,21 +136,25 @@ class block_wdsprefs extends block_base {
         if ($instructor || $student) {
             // Loop through all the priveleged items.
             foreach ($privelegeditems as $item) {
-                $icon = html_writer::tag('i', '', ['class' => 'fa ' . $item['icon'], 'aria-hidden' => 'true']);
-                $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'menu-link']);
+                $icon = html_writer::tag('i', '',
+                    ['class' => 'wds icon fa ' . $item['icon'], 'aria-hidden' => 'true']);
+                $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'wds menu-link']);
                 $listitems .= html_writer::tag('li', $link, ['class' => 'menu-item']);
             }
         }
 
-        // Append these to the end.
+        /*
+        // Append these to the end possibru.
         foreach ($genericitems as $item) {
-            $icon = html_writer::tag('i', '', ['class' => 'fa ' . $item['icon'], 'aria-hidden' => 'true']);
-            $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'menu-link']);
+            $icon = html_writer::tag('i', '',
+                ['class' => 'wds icon fa ' . $item['icon'], 'aria-hidden' => 'true']);
+            $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'wds menu-link']);
             $listitems .= html_writer::tag('li', $link, ['class' => 'menu-item']);
         }
+        */
 
         // Build out the unordered list.
-        $this->content->text = html_writer::tag('ul', $listitems, ['class' => 'menu-list']);
+        $this->content->text = html_writer::tag('ul', $listitems, ['class' => 'wds menu-list']);
 
         return $this->content;
     }
