@@ -37,7 +37,20 @@ $url = new moodle_url('/blocks/wdsprefs/unwantview.php');
 $PAGE->set_url($url);
 $PAGE->set_context($context);
 $PAGE->set_title(get_string('wdsprefs:unwant', 'block_wdsprefs'));
-$PAGE->set_heading(get_string('wdsprefs:unwant', 'block_wdsprefs'));
+//$PAGE->set_heading(get_string('wdsprefs:unwant', 'block_wdsprefs'));
+
+// Add breadcrumbs.
+$PAGE->navbar->add(
+    get_string('home'),
+    new moodle_url('/')
+);
+$PAGE->navbar->add(
+    get_string('wdsprefs:unwant', 'block_wdsprefs'),
+    new moodle_url('/blocks/wdsprefs/unwantview.php')
+);
+
+// Set page layout.
+$PAGE->set_pagelayout('base');
 
 class section_preferences_form extends moodleform {
     public static function get_numeric_course_value($section) {
@@ -64,6 +77,7 @@ class section_preferences_form extends moodleform {
         $ssql = "SELECT sec.id,
                 per.period_year,
                 per.period_type,
+                per.academic_period_id,
                 sec.course_subject_abbreviation,
                 cou.course_number,
                 sec.section_listing_id,
@@ -80,29 +94,36 @@ class section_preferences_form extends moodleform {
                     ON tea.universal_id = tenr.universal_id
             WHERE sec.controls_grading = 1
                 AND tenr.role = 'Primary'
-                AND tea.userid = ?";
+                AND tea.userid = ?
+            ORDER BY per.start_date ASC,
+                sec.course_subject_abbreviation ASC,
+                cou.course_number ASC,
+                sec.section_number ASC";
 
         // Fetch all sections for the user on this page.
         $sections = $DB->get_records_sql($ssql, [$userid]);
 
+        // Group sections by academic_period_id.
+        $gsections = [];
+        foreach ($sections as $section) {
+            $gsections[$section->academic_period_id][] = $section;
+        }
+
         // Return them.
-        return $sections;
+        return $gsections;
     }
 
     public function definition() {
         global $CFG, $DB, $USER;
 
-        // Retrieve sections from custom data.
-        $sections = $this->_customdata['sections'] ?? [];
+        // Retrieve grouped sections from custom data.
+        $gsections = $this->_customdata['gsections'] ?? [];
 
         // Instantiate the form.
         $mform = $this->_form;
 
-        // Count 'em up for later.
-        $scount = count($sections);
-
-        // If we don't have any sections, redirect home.
-        if ($scount < 1) {
+        // If no sections exist, redirect home.
+        if (empty($gsections)) {
             redirect(
                 $CFG->wwwroot,
                 'You have no Workday Student course sections.',
@@ -111,97 +132,114 @@ class section_preferences_form extends moodleform {
             );
         }
 
-        // We have some, let's do something with them.
-        foreach ($sections as $section) {
-            // Define the checkboxname.
-            $checkboxname = 'section_' . $section->id;
-            // Define the section name for the form.
-            $section->name = $section->period_year . ' ' .
-                $section->course_subject_abbreviation . ' ' .
-                $section->course_number . ' ' .
-                $section->section_number;
+        // Iterate over academic periods.
+        foreach ($gsections as $academic_period_id => $sections) {
 
-            // Add the form.
-            $mform->addElement('advcheckbox', $checkboxname, $section->name);
+            // Add a header for each academic period.
+            $mform->addElement('header', "academic_period_$academic_period_id", 
+                    $sections[0]->period_year .
+                    " " .
+                    $sections[0]->period_type
+            );
 
-            // Build out the parms.
-            $parms = [
-                'userid' => $section->userid,
-                'sectionid' => $section->id,
-            ];
+            // Iterate through sections in the academic period.
+            foreach ($sections as $section) {
+                // Define the checkbox name.
+                $checkboxname = 'section_' . $section->id;
 
-            // Check if the user has previously set the section as unwanted.
-            $existing = $DB->get_record('block_wdspref_unwants', $parms);
+                // Define the section name for the form.
+                $section->name = $section->course_subject_abbreviation . ' ' .
+                    $section->course_number . ' ' .
+                    $section->section_number;
 
-            // If the user has set the section as unwanted, set that as the default.
-            if (isset($existing->id) && $existing->unwanted == 1) {
-                $mform->setDefault($checkboxname, 1);
-            } else if (!isset($existing->id) && self::get_numeric_course_value($section) > 5000) {
-                $mform->setDefault($checkboxname, 1);
+                // Add the form checkbox.
+                $checkbox = $mform->addElement(
+                    'advcheckbox',
+                    $checkboxname,
+                    $section->name
+                );
+
+                // Check if the user has previously set the section as unwanted.
+                $parms = ['userid' => $section->userid, 'sectionid' => $section->id];
+                $existing = $DB->get_record('block_wdspref_unwants', $parms);
+
+                // Set the default values.
+                if (isset($existing->id) && $existing->unwanted == 1) {
+                    $mform->setDefault($checkboxname, 1);
+                } else if (!isset($existing->id) && self::get_numeric_course_value($section) > 5000) {
+                    $mform->setDefault($checkboxname, 1);
+                }
             }
         }
 
         // Add the submit button.
-        $mform->addElement('submit', 'submitbutton', get_string('wdsprefs:saveprefs', 'block_wdsprefs'));
+        $this->add_action_buttons(
+            false,
+            get_string('wdsprefs:saveprefs', 'block_wdsprefs')
+        );
     }
 }
 
-// Fetch sections once.
-$sections = section_preferences_form::get_courses($USER->id);
+// Fetch sections once and group them by academic_period_id.
+$gsections = section_preferences_form::get_courses($USER->id);
 
-// Instantiate the form and pass sections as custom data.
-$form = new section_preferences_form(null, ['sections' => $sections]);
+// Instantiate the form and pass grouped sections as custom data.
+$form = new section_preferences_form('', ['gsections' => $gsections]);
 
 // Process form submission.
 if ($form->is_submitted() && $data = $form->get_data()) {
 
-    // Loop through the sections.
-    foreach ($sections as $section) {
+    // Loop through grouped sections by academic period.
+    foreach ($gsections as $academic_period_id => $sections) {
 
-        // Define the key names.
-        $key = 'section_' . $section->id;
+        // Loop through the sections.
+        foreach ($sections as $section) {
 
-        // Ignore unset checkboxes to avoid overriding existing preferences.
-        if (!isset($data->$key)) {
-            continue;
-        }
+            // Define the key names.
+            $key = 'section_' . $section->id;
 
-        // Build these out for later.
-        $sectionid = $section->id;
-        $unwanted = $data->$key ? 1 : 0;
-
-        // Check if this record already exists.
-        $existing = $DB->get_record(
-            'block_wdspref_unwants',
-            ['userid' => $USER->id, 'sectionid' => $sectionid]
-        );
-
-        // If we have a record in the DB for this user in this section.
-        if ($existing) {
-
-            // Update only if the value actually changed.
-            if ($existing->unwanted != $unwanted) {
-                $existing->unwanted = $unwanted;
-                $existing->lastupdated = time();
-
-                // Update the record.
-                $DB->update_record('block_wdspref_unwants', $existing);
+            // Ignore unset checkboxes to avoid overriding existing preferences.
+            if (!isset($data->$key)) {
+                continue;
             }
 
-        // Insert a new record only if checked.
-        } else if ($unwanted == 1 ||
-            section_preferences_form::get_numeric_course_value($section) > 5000
-        )  {
+            // Build these out for later.
+            $sectionid = $section->id;
+            $unwanted = $data->$key ? 1 : 0;
 
-            // Build the new record object.
-            $newrecord = new stdClass();
-            $newrecord->userid = $USER->id;
-            $newrecord->sectionid = $sectionid;
-            $newrecord->unwanted = $unwanted;
-            $newrecord->lastupdated = time();
+            // Check if this record already exists.
+            $existing = $DB->get_record(
+                'block_wdspref_unwants',
+                ['userid' => $USER->id, 'sectionid' => $sectionid]
+            );
 
-            // Insert the record.
-            $DB->insert_record('block_wdspref_unwants', $newrecord);
+            // If we have a record in the DB for this user in this section.
+            if ($existing) {
+
+                // Update only if the value actually changed.
+                if ($existing->unwanted != $unwanted) {
+                    $existing->unwanted = $unwanted;
+                    $existing->lastupdated = time();
+
+                    // Update the record.
+                    $DB->update_record('block_wdspref_unwants', $existing);
+                }
+
+            // Insert a new record only if checked.
+            } else if ($unwanted == 1 ||
+                section_preferences_form::get_numeric_course_value($section) > 5000
+            )  {
+
+                // Build the new record object.
+                $newrecord = new stdClass();
+                $newrecord->userid = $USER->id;
+                $newrecord->sectionid = $sectionid;
+                $newrecord->unwanted = $unwanted;
+                $newrecord->lastupdated = time();
+
+                // Insert the record.
+                $DB->insert_record('block_wdspref_unwants', $newrecord);
+            }
         }
     }
 
