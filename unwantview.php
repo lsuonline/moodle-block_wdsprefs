@@ -37,7 +37,7 @@ $url = new moodle_url('/blocks/wdsprefs/unwantview.php');
 $PAGE->set_url($url);
 $PAGE->set_context($context);
 $PAGE->set_title(get_string('wdsprefs:unwant', 'block_wdsprefs'));
-//$PAGE->set_heading(get_string('wdsprefs:unwant', 'block_wdsprefs'));
+// $PAGE->set_heading(get_string('wdsprefs:unwant', 'block_wdsprefs'));
 
 // Add breadcrumbs.
 $PAGE->navbar->add(
@@ -82,7 +82,8 @@ class section_preferences_form extends moodleform {
                 cou.course_number,
                 sec.section_listing_id,
                 tea.userid,
-                sec.section_number
+                sec.section_number,
+                COALESCE(c.id, 'Pending') AS moodle_courseid
             FROM {enrol_wds_sections} sec
                 INNER JOIN {enrol_wds_courses} cou
                     ON cou.course_definition_id = sec.course_definition_id
@@ -92,6 +93,7 @@ class section_preferences_form extends moodleform {
                     ON sec.section_listing_id = tenr.section_listing_id
                 INNER JOIN {enrol_wds_teachers} tea
                     ON tea.universal_id = tenr.universal_id
+                LEFT JOIN {course} c ON c.id = sec.moodle_status
             WHERE sec.controls_grading = 1
                 AND tenr.role = 'Primary'
                 AND tea.userid = ?
@@ -186,8 +188,17 @@ $gsections = section_preferences_form::get_courses($USER->id);
 // Instantiate the form and pass grouped sections as custom data.
 $form = new section_preferences_form('', ['gsections' => $gsections]);
 
+// Get the workdaystudent lib for later.
+$wdslib = $CFG->dirroot . '/enrol/workdaystudent/classes/workdaystudent.php';
+
 // Process form submission.
 if ($form->is_submitted() && $data = $form->get_data()) {
+
+    // Just to be safe.
+    if (file_exists($wdslib)) {
+        require_once($wdslib);
+        $usingwds = true;
+    }
 
     // Loop through grouped sections by academic period.
     foreach ($gsections as $academic_period_id => $sections) {
