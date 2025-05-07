@@ -26,6 +26,57 @@ require_once("$CFG->dirroot/enrol/workdaystudent/classes/workdaystudent.php");
 class wdsprefs {
 
     /**
+     * Creates a group for a section in a crosslisted course.
+     *
+     * @param @int $courseid The course ID.
+     * @param @object $section The section object.
+     * @return @int Group ID or false on failure.
+     */
+    public static function create_crosslist_group($courseid, $section) {
+        global $DB;
+
+        $coursenumber = self::get_coursenumber_from_section($section->id);
+
+        // Check if a group already exists for this section.
+        $groupname = $section->course_subject_abbreviation . ' ' .
+            $coursenumber . ' ' .
+            $section->section_number . '-';
+
+        $existinggroup = $DB->get_record('groups',
+            ['courseid' => $courseid, 'name' => $groupname]);
+
+        if ($existinggroup) {
+            return $existinggroup->id;
+        }
+
+        // Create a new group.
+        $groupdata = new stdClass();
+        $groupdata->courseid = $courseid;
+        $groupdata->name = $groupname;
+        $groupdata->description = 'Auto-generated group for crosslisted section ' .
+            $section->course_subject_abbreviation . ' ' .
+            $section->course_number . ' ' .
+            $section->section_number;
+        $groupdata->timecreated = time();
+        $groupdata->timemodified = time();
+
+        return groups_create_group($groupdata);
+    }
+
+    /**
+     * Adds a user to appropriate group for a crosslisted section.
+     *
+     * @param @int $courseid The course ID.
+     * @param @int $userid The user ID.
+     * @param @int $groupid The group ID.
+     * @return @bool Success or failure.
+     */
+    public static function add_user_to_crosslist_group($courseid, $userid, $groupid) {
+        // Use Moodle's group function to add the user
+        return groups_add_member($groupid, $userid);
+    }
+
+    /**
      * Creates a crosslisted course shell and assigns sections to it.
      *
      * @param @int $userid User ID creating the crosslist.
@@ -225,14 +276,17 @@ class wdsprefs {
     /**
      * Processes student enrollments for a crosslisted course.
      *
-     * @param int $crosslistid The crosslist ID
-     * @return bool Success or failure
+     * @param @int $crosslistid The crosslist ID.
+     * @return @bool Success or failure.
      */
     public static function process_crosslist_enrollments($crosslistid) {
         global $DB, $CFG;
 
         // Require workdaystudent for enrollment functionality.
         require_once($CFG->dirroot . '/enrol/workdaystudent/classes/workdaystudent.php');
+
+        // Require groups library.
+        require_once($CFG->dirroot . '/group/lib.php');
 
         // Get the crosslist record.
         $crosslist = $DB->get_record('block_wdsprefs_crosslists', ['id' => $crosslistid]);
@@ -272,7 +326,7 @@ class wdsprefs {
 
             // Get the actual section.
             $section = $DB->get_record($stable, ['id' => $clsection->section_id]);
-
+  
             if (!$section) {
                 continue;
             }
@@ -280,6 +334,9 @@ class wdsprefs {
             // Set this for later use.
             $originalcourseid = $section->moodle_status;
 
+            // Create a group for this section
+            $groupid = self::create_crosslist_group($crosslist->moodle_course_id, $section);
+        
             // Assign the section to the new course shell id.
             $DB->set_field($stable, 'moodle_status', $crosslist->moodle_course_id,
                 ['id' => $section->id]
@@ -292,6 +349,7 @@ class wdsprefs {
 
             // Process each student enrollment.
             foreach ($studentenrolls as $studenroll) {
+
                 // Get student record.
                 $student = $DB->get_record($stutable,
                     ['universal_id' => $studenroll->universal_id]
@@ -308,6 +366,14 @@ class wdsprefs {
                         $studenroll->drop_date,
                         ENROL_USER_ACTIVE
                     );
+                
+                    // Add student to the section group
+                    if ($groupid) {
+                        self::add_user_to_crosslist_group($crosslist->moodle_course_id,
+                            $student->userid,
+                            $groupid
+                        );
+                    }
 
                     // Update original enrollment status if needed.
                     if ($section->controls_grading == 1) {
@@ -342,8 +408,8 @@ class wdsprefs {
                 }
             }
 
-            // Update teacher enrollments.
-            self::process_crosslist_teacher_enrollments($crosslist->moodle_course_id, $section);
+            // Update teacher enrollments and add them to the group.
+            self::process_crosslist_teacher_enrollments($crosslist->moodle_course_id, $section, $groupid);
 
             // Update section's crosslist status.
             $DB->set_field('block_wdsprefs_crosslist_sections', 'status', 'enrolled',
@@ -361,7 +427,7 @@ class wdsprefs {
      * @param object $section The section object
      * @return bool Success or failure
      */
-    public static function process_crosslist_teacher_enrollments($courseid, $section) {
+    public static function process_crosslist_teacher_enrollments($courseid, $section, $groupid = null) {
         global $DB;
 
         // Get teacher enrollments for this section
@@ -387,6 +453,10 @@ class wdsprefs {
 
                 // Enroll teacher in crosslisted course
                 enrol_try_internal_enrol($courseid, $teacher->userid, $teacherroleid);
+
+                if ($groupid) {
+                     self::add_user_to_crosslist_group($courseid, $teacher->userid, $groupid);
+                }
             }
         }
 
@@ -414,6 +484,32 @@ class wdsprefs {
         return $DB->get_records_sql($sql, $params);
     }
 
+    /**
+     * Gets course number from a seciton id.
+     *
+     * @param @int $sectionid The section id.
+     * @return @string The course number.
+     */
+    public static function get_coursenumber_from_section($sectionid) {
+        global $DB;
+
+        // Build the SQL.
+        $sql = "SELECT DISTINCT(c.course_number) AS course_number
+            FROM {enrol_wds_sections} s
+            INNER JOIN {enrol_wds_courses} c ON c.course_listing_id = s.course_listing_id
+            WHERE s.id = :sectionid";
+
+        // Build the parms.
+        $parms = ['sectionid' => $sectionid];
+
+        // Get the data.
+        $data = $DB->get_record_sql($sql, $parms);
+
+        $coursenumber = $data->course_number;
+
+        return $coursenumber;
+    }
+        
     /**
      * Gets sections assigned to a crosslisted shell.
      *
