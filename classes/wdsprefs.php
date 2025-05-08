@@ -109,6 +109,96 @@ class wdsprefs {
         // Get period info.
         $period = self::get_period_from_periodid($periodid);
 
+        // Extract shell number from shell name.
+        $shellnum = 1;
+        if (preg_match('/Shell (\d+)/', $shellname, $matches)) {
+            $shellnum = $matches[1];
+        }
+
+        // Collect all course abbreviations and numbers in a structured way.
+        $coursesbyprefix = [];
+
+        // Loop through the crosslisted sections to get the identifiers.
+        foreach ($sectionids as $sectionid) {
+
+            // Get the section object.
+            $section = $DB->get_record('enrol_wds_sections', ['id' => $sectionid]);
+
+            // If we got section data.
+            if ($section) {
+
+                // Build out the sql.
+                $clsql = "SELECT course_subject_abbreviation,
+                    course_number
+                    FROM {enrol_wds_courses}
+                    WHERE course_listing_id = :courselistingid";
+
+                // Build out the SQL parms.
+                $clparms = ['courselistingid' => $section->course_listing_id];
+
+                // Get the data.
+                $clid = $DB->get_record_sql($clsql, $clparms);
+
+                // If we got a record, do stuff.
+                if ($clid) {
+
+                    // Set the prefix and number.
+                    $prefix = $clid->course_subject_abbreviation;
+                    $number = $clid->course_number;
+
+                    // If this prefix hasn't been seen yet, initialize an array for it.
+                    if (!isset($coursesbyprefix[$prefix])) {
+                        $coursesbyprefix[$prefix] = [];
+                    }
+
+                    // Add this course number if it's not already in the array.
+                    if (!in_array($number, $coursesbyprefix[$prefix])) {
+                        $coursesbyprefix[$prefix][] = $number;
+                    }
+                }
+            }
+        }
+
+        // Now build the pseudo+not+really+intelligent identifier string.
+        $courseidentifiers = '';
+
+        // Grab the prefixes (course subject abbreviations).
+        $prefixes = array_keys($coursesbyprefix);
+
+        // Loop through them.
+        foreach ($prefixes as $i => $prefix) {
+            // Add a new prefix.
+            $courseidentifiers .= $prefix;
+
+            // Add first course number.
+            $courseidentifiers .= $coursesbyprefix[$prefix][0];
+
+            // If there are more course numbers for this prefix, add them with '+'.
+            for ($j = 1; $j < count($coursesbyprefix[$prefix]); $j++) {
+                $courseidentifiers .= '+' . $coursesbyprefix[$prefix][$j];
+            }
+
+            // If this isn't the last prefix, add a '-' separator.
+            if ($i < count($prefixes) - 1) {
+                $courseidentifiers .= '-';
+            }
+        }
+
+        // Generate the idnumber.
+        $idnumber = $period->period_year . $period->period_type .
+                    '-cl-' . $courseidentifiers .
+                    '-shell_' . $shellnum .
+                    '-' . $universalid;
+
+        // Generate the fullname.
+        $fullname = $period->period_year .
+                    ' ' . $period->period_type .
+                    ' (' . $courseidentifiers . ')' .
+                    ' Shell ' . $shellnum .
+                    ' for ' . $user->firstname .
+                    ' ' . $user->lastname;
+
+
         // Start transaction.
         $transaction = $DB->start_delegated_transaction();
 
@@ -160,15 +250,13 @@ class wdsprefs {
                      '-' . $timecreated .
                      '-' . $userid;
 
-            // TODO: This is gross. figure some shit out.
-            $fullname = 'Crosslisted: ' . $shellname;
-
             // Set course parameters.
             $course = new stdClass();
             $course->shortname = $shortname;
             $course->fullname = $fullname;
             $course->numsections = $coursedefaults->numsections;
             $course->summary = 'Crosslisted course shell containing sections from multiple courses';
+            $course->idnumber = $idnumber;
 
             // Get the category based on subject of first course.
             $cat = self::get_subject_category($courseinfo->course_subject_abbreviation);
@@ -196,6 +284,7 @@ class wdsprefs {
             $crosslist = new stdClass();
             $crosslist->id = $crosslistid;
             $crosslist->moodle_course_id = $course->id;
+            $crosslist->idnumber = $idnumber;
             $crosslist->status = 'created';
             $crosslist->timemodified = $timecreated;
 
@@ -312,6 +401,10 @@ class wdsprefs {
             $instance = workdaystudent::wds_create_enrollment_instance($crosslist->moodle_course_id);
         }
 
+        // Get the course record to retrieve the idnumber.
+        $course = $DB->get_record('course', ['id' => $crosslist->moodle_course_id], 'idnumber');
+        $courseIdnumber = $course ? $course->idnumber : '';
+
         // Set the students table.
         $stutable = 'enrol_wds_students';
 
@@ -326,7 +419,7 @@ class wdsprefs {
 
             // Get the actual section.
             $section = $DB->get_record($stable, ['id' => $clsection->section_id]);
-  
+
             if (!$section) {
                 continue;
             }
@@ -336,7 +429,7 @@ class wdsprefs {
 
             // Create a group for this section
             $groupid = self::create_crosslist_group($crosslist->moodle_course_id, $section);
-        
+
             // Assign the section to the new course shell id.
             $DB->set_field($stable, 'moodle_status', $crosslist->moodle_course_id,
                 ['id' => $section->id]
@@ -366,7 +459,7 @@ class wdsprefs {
                         $studenroll->drop_date,
                         ENROL_USER_ACTIVE
                     );
-                
+
                     // Add student to the section group
                     if ($groupid) {
                         self::add_user_to_crosslist_group($crosslist->moodle_course_id,
@@ -509,7 +602,7 @@ class wdsprefs {
 
         return $coursenumber;
     }
-        
+
     /**
      * Gets sections assigned to a crosslisted shell.
      *
