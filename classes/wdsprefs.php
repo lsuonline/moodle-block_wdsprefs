@@ -85,7 +85,7 @@ class wdsprefs {
      * @param @string $shellname Name for the crosslisted shell.
      * @return @int | @bool The new crosslist_id if successful, false on failure.
      */
-    public static function create_crosslist_shell($userid, $periodid, $sectionids, $shellname) {
+    public static function create_crosslist_shell($userid, $periodid, $sectionids, $shellname, $shellcount) {
         global $DB, $CFG;
 
         // Require workdaystudent for course creation functionality.
@@ -159,45 +159,75 @@ class wdsprefs {
             }
         }
 
-        // Now build the pseudo+not+really+intelligent identifier string.
-        $courseidentifiers = '';
+        // For idnumber we want down and dirty.
+        $idnumberidentifiers = '';
+
+        // For fullname we want spaces.
+        $fullnameidentifiers = [];
 
         // Grab the prefixes (course subject abbreviations).
         $prefixes = array_keys($coursesbyprefix);
 
-        // Loop through them.
-        foreach ($prefixes as $i => $prefix) {
-            // Add a new prefix.
-            $courseidentifiers .= $prefix;
+        // Loop through them
+        foreach ($prefixes as $prefix) {
 
-            // Add first course number.
-            $courseidentifiers .= $coursesbyprefix[$prefix][0];
+            // For each prefix, collect all its course numbers.
+            $prefixnumbers = $coursesbyprefix[$prefix];
 
-            // If there are more course numbers for this prefix, add them with '+'.
-            for ($j = 1; $j < count($coursesbyprefix[$prefix]); $j++) {
-                $courseidentifiers .= '+' . $coursesbyprefix[$prefix][$j];
+            // For idnumber - just run everything together with no separators.
+            $idnumberidentifiers .= $prefix;
+            foreach ($prefixnumbers as $number) {
+                $idnumberidentifiers .= $number;
             }
 
-            // If this isn't the last prefix, add a '-' separator.
-            if ($i < count($prefixes) - 1) {
-                $courseidentifiers .= '-';
-            }
+            // For fullname - format as "PREFIX NUMBER1/NUMBER2/...".
+            $fullnameprefixstring = $prefix . " ";
+            $fullnameprefixstring .= implode('/', $prefixnumbers);
+            $fullnameidentifiers[] = $fullnameprefixstring;
         }
 
+        // Join the fullname identifiers with " / " between different prefixes.
+        $fnidstring = implode(' / ', $fullnameidentifiers);
+
         // Generate the idnumber.
-        $idnumber = $period->period_year . $period->period_type .
-                    '-cl-' . $courseidentifiers .
-                    '-shell_' . $shellnum .
-                    '-' . $universalid;
+        $idnumber = $period->period_year .
+                    str_replace(' ', '_', $period->period_type) .
+                    $idnumberidentifiers .
+                    '-' . $universalid .
+                    '-cl';
 
-        // Generate the fullname.
+        // Generate the fullname - only include (Shell X) if shellnum > 1.
         $fullname = $period->period_year .
-                    ' ' . $period->period_type .
-                    ' (' . $courseidentifiers . ')' .
-                    ' Shell ' . $shellnum .
-                    ' for ' . $user->firstname .
-                    ' ' . $user->lastname;
+                ' ' . $period->period_type .
+                ' ' . $fnidstring .
+                ' for ' . $user->firstname .
+                ' ' . $user->lastname;
 
+        // Add the shell number only if there's more than one shell.
+        if ($shellcount > 1) {
+            $fullname .= ' (Shell ' . $shellnum . ')';
+            $idnumber .= '-shell_' . $shellnum;
+        }
+
+        // Set this for the course record and shortname.
+        $timecreated = time();
+
+        // Create the shortname.
+        // $shortname = str_replace(' ', '_', $fullname . '-' . $timecreated);
+        $shortname = $fullname;
+
+/*
+echo"<pre>";
+echo("Short Name: " . $shortname);
+echo"</pre>";
+echo"<pre>";
+echo("ID Number: " . $idnumber);
+echo"</pre>";
+echo"<pre>";
+echo("Full Name: " . $fullname);
+echo"</pre>";
+die();
+*/
 
         // Start transaction.
         $transaction = $DB->start_delegated_transaction();
@@ -240,15 +270,6 @@ class wdsprefs {
             if (!$courseinfo) {
                 throw new Exception('Failed to find course data');
             }
-
-            // Set this for the course record and shortname.
-            $timecreated = time();
-
-            // Create course shell.
-            $shortname = 'Crosslist-' . $period->period_year .
-                     '-' . $period->period_type .
-                     '-' . $timecreated .
-                     '-' . $userid;
 
             // Set course parameters.
             $course = new stdClass();
@@ -698,7 +719,13 @@ class wdsprefs {
                 $shellname = "$periodname (Shell $i) for $teacher";
 
                 // Create the crosslisted shell
-                $crosslistid = self::create_crosslist_shell($USER->id, $periodid, $sectionids, $shellname);
+                $crosslistid = self::create_crosslist_shell(
+                    $USER->id,
+                    $periodid,
+                    $sectionids,
+                    $shellname,
+                    $shellcount
+                );
 
                 if ($crosslistid) {
 
