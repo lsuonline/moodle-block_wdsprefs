@@ -87,12 +87,6 @@ class block_wdsprefs extends block_base {
                 'icon' => 'fa-landmark'
             ],
             [
-                'text' => get_string('wdsprefs:unwant', 'block_wdsprefs'),
-                'url' => new moodle_url('/blocks/wdsprefs/unwantview.php'),
-                'icontype' => 'fontawesome',
-                'icon' => 'fa-ban'
-            ],
-            [
                 'text' => get_string('wdsprefs:split', 'block_wdsprefs'),
                 'url' => new moodle_url('/blocks/wdsprefs/splitview.php'),
                 'icontype' => 'fontawesome',
@@ -115,6 +109,12 @@ class block_wdsprefs extends block_base {
                 'url' => new moodle_url('/blocks/wdsprefs/blueprintview.php'),
                 'icontype' => 'fontawesome',
                 'icon' => 'fa-recycle'
+            ],
+            [
+                'text' => get_string('wdsprefs:unwant', 'block_wdsprefs'),
+                'url' => new moodle_url('/blocks/wdsprefs/unwantview.php'),
+                'icontype' => 'fontawesome',
+                'icon' => 'fa-ban'
             ],
         ];
 
@@ -180,6 +180,6 @@ class block_wdsprefs extends block_base {
 
     // This has no config of it's own, but gets base prefs from enrol_workdaystudent.
     public function has_config() {
-        return false;
+        return true;
     }
 }

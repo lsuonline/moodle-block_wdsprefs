@@ -238,7 +238,7 @@ die();
             $crosslist->userid = $userid;
             $crosslist->universal_id = $universalid;
             $crosslist->academic_period_id = $period->academic_period_id;
-            $crosslist->shell_name = $shellname;
+            $crosslist->shell_name = $fullname;
             $crosslist->status = 'pending';
             $crosslist->timecreated = time();
             $crosslist->timemodified = time();
@@ -304,8 +304,8 @@ die();
             // Update crosslist record with moodle course id.
             $crosslist = new stdClass();
             $crosslist->id = $crosslistid;
+            $crosslist->shell_name = $fullname;
             $crosslist->moodle_course_id = $course->id;
-            $crosslist->idnumber = $idnumber;
             $crosslist->status = 'created';
             $crosslist->timemodified = $timecreated;
 
@@ -318,6 +318,8 @@ die();
                 $section = $DB->get_record('enrol_wds_sections', ['id' => $sectionid]);
 
                 if ($section) {
+
+                    // Build the crosslist section object.
                     $crosslistsection = new stdClass();
                     $crosslistsection->crosslist_id = $crosslistid;
                     $crosslistsection->section_id = $sectionid;
@@ -328,6 +330,13 @@ die();
 
                     // Save section record.
                     $DB->insert_record('block_wdsprefs_crosslist_sections', $crosslistsection);
+
+                    // Assign the section to the new course shell id and idnumber.
+                    $section->moodle_status = $course->id;
+                    $section->idnumber = $idnumber;
+
+                    // Update the record.
+                    $DB->update_record('enrol_wds_sections', $section);
                 }
             }
 
@@ -469,7 +478,7 @@ die();
                     ['universal_id' => $studenroll->universal_id]
                 );
 
-                if ($student && $student->userid) {
+                if ($student && $student->userid && $studenroll->status != 'Unenrolled') {
 
                     // Enroll student in crosslisted course.
                     $studentroleid = $DB->get_field('role', 'id', ['shortname' => 'student']);
@@ -491,15 +500,6 @@ die();
 
                     // Update original enrollment status if needed.
                     if ($section->controls_grading == 1) {
-
-                        /* TODO: DEAL with this shit somehow?
-
-                        Mark the enrollment as crosslisted in wds tables.
-                        $DB->set_field($stuenrtable, 'status', 'crosslisted',
-                            ['id' => $studenroll->id]
-                        );
-
-                        */
 
                         // Unenroll from original course if it exists.
                         if ($section->moodle_status && is_numeric($section->moodle_status)) {
