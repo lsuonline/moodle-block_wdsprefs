@@ -16,7 +16,7 @@
 
 /**
  * View sections in a crosslisted shell.
- * 
+ *
  * @package    block_wdsprefs
  * @copyright  2025 onwards Louisiana State University
  * @copyright  2025 onwards Robert Russo
@@ -37,6 +37,30 @@ $context = context_system::instance();
 
 // Get the crosslist ID.
 $id = required_param('id', PARAM_INT);
+
+// Check if we're undoing the crosslist.
+$undo = optional_param('undo', 0, PARAM_BOOL);
+
+// If undoing, process it.
+if ($undo) {
+    $result = wdsprefs::undo_crosslist($id);
+
+    if ($result) {
+        redirect(
+            new moodle_url('/blocks/wdsprefs/crosslist.php'),
+            get_string('wdsprefs:undosuccess', 'block_wdsprefs'),
+            null,
+            \core\output\notification::NOTIFY_SUCCESS
+        );
+    } else {
+        redirect(
+            new moodle_url('/blocks/wdsprefs/crosslist_sections.php', ['id' => $id]),
+            get_string('wdsprefs:undofailed', 'block_wdsprefs'),
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
+    }
+}
 
 // Set up the page.
 $url = new moodle_url('/blocks/wdsprefs/crosslist_sections.php', ['id' => $id]);
@@ -81,9 +105,9 @@ echo html_writer::tag('h3', $crosslist->shell_name);
 // Display course link if it exists.
 if ($crosslist->moodle_course_id) {
     $courseurl = new moodle_url('/course/view.php', ['id' => $crosslist->moodle_course_id]);
-    echo html_writer::tag('p', 
+    echo html_writer::tag('p',
         html_writer::link(
-            $courseurl, 
+            $courseurl,
             get_string('wdsprefs:viewcourse', 'block_wdsprefs'),
             ['class' => 'btn btn-primary', 'target' => '_blank']
         )
@@ -103,23 +127,38 @@ if (empty($sections)) {
         get_string('wdsprefs:section', 'block_wdsprefs'),
         get_string('wdsprefs:status', 'block_wdsprefs')
     ];
-    
+
     foreach ($sections as $section) {
         $row = [];
         $row[] = $section->course_subject_abbreviation . ' ' . $section->course_number;
         $row[] = $section->section_number;
         $row[] = get_string('wdsprefs:sectionstatus_' . $section->status, 'block_wdsprefs');
-        
+
         $table->data[] = $row;
     }
-    
+
     echo html_writer::table($table);
 }
 
+// Add button row with back and undo buttons.
+echo html_writer::start_div('mt-4 buttons-container');
+
+// Undo button.
+$undourl = new moodle_url('/blocks/wdsprefs/crosslist_sections.php', ['id' => $id, 'undo' => 1]);
+$confirmmessage = get_string('wdsprefs:undoconfirm', 'block_wdsprefs');
+echo html_writer::link(
+    $undourl,
+    get_string('wdsprefs:undo', 'block_wdsprefs'),
+    ['class' => 'btn btn-warning mr-2', 'onclick' => "return confirm('$confirmmessage');"]
+);
+
+// Space between buttons.
+echo ' ';
+
 // Add back button.
-echo html_writer::tag('div', 
+echo html_writer::tag('div',
     html_writer::link(
-        new moodle_url('/blocks/wdsprefs/crosslist.php'), 
+        new moodle_url('/blocks/wdsprefs/crosslist.php'),
         get_string('back'),
         ['class' => 'btn btn-secondary']
     ),

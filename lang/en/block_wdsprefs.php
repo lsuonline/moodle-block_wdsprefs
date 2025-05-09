@@ -131,3 +131,9 @@ $string['wdsprefs:nocourses'] = 'You are not teaching any courses in the current
 $string['wdsprefs:blueprintstatus_pending'] = 'Pending';
 $string['wdsprefs:blueprintstatus_created'] = 'Created';
 $string['wdsprefs:blueprintstatus_failed'] = 'Failed';
+
+// Undo crosslisting strings.
+$string['wdsprefs:undo'] = 'Undo Crosslisting';
+$string['wdsprefs:undoconfirm'] = 'Are you sure you want to undo this crosslisting? This will reset sections to their original course shells and move enrollments accordingly. This action cannot be undone.';
+$string['wdsprefs:undosuccess'] = 'Crosslisting successfully undone. Sections have been reset to their original course shells.';
+$string['wdsprefs:undofailed'] = 'Failed to undo crosslisting. Please contact support.';
