@@ -112,11 +112,26 @@ public static function undo_crosslist($crosslistid) {
                 $coursedata->fullname = $fullname;
                 $coursedata->shortname = $fullname;
                 $coursedata->idnumber = $idnumber;
-                $coursedata->category = $DB->get_field('course', 'category', ['id' => $crosslist->moodle_course_id]);
+
+                $ccat = (int) $DB->get_field('course', 'category', ['id' => $crosslist->moodle_course_id]);
+                $coursedata->category = $ccat;
                 $coursedata->visible = 1;
 
-                // Create the course.
-                $newcourse = create_course($coursedata);
+                $excourseidn = $DB->get_record('course', ['idnumber' => $idnumber]);
+                $excoursesn = $DB->get_record('course', ['shortname' => $fullname]);
+
+                if ($excourseidn && $excoursesn && ($excourseidn->id != $excoursesn->id)) {
+                    mtrace("Absolutely no idea how to deal with two existing but non-matching courses.");
+                    mtrace("Existing IDNumber: $excourseidn->idnumber \nExisting ShortName: $excoursesn->id \nProposed ShortName: $fullname \nProposed IDNumber: $idnumber");
+                } else if ($excourseidn && $excoursesn && ($excourseidn->id == $excoursesn->id)) {
+                    $newcourse = $excoursesn;
+                } else if ($excourseidn || $excoursesn) {
+                    $newcourse = $excoursesn ? $excoursesn : $excourseidn;
+                } else {
+                    // Create course in Moodle.
+                    $newcourse = create_course($coursedata);
+                }
+
                 $courseid = $newcourse->id;
 
                 // Enroll the teacher.
@@ -340,11 +355,19 @@ public static function undo_crosslist($crosslistid) {
         // Collect all course abbreviations and numbers in a structured way.
         $coursesbyprefix = [];
 
+        // Collect old courseids.
+        $oldcourseids = [];
+
         // Loop through the crosslisted sections to get the identifiers.
         foreach ($sectionids as $sectionid) {
 
             // Get the section object.
             $section = $DB->get_record('enrol_wds_sections', ['id' => $sectionid]);
+
+            // Store this old course id ASAP and send it along.
+            $oldcourseids[$section->id] = (object)[
+                 'idnumber' => $section->idnumber,
+                 'courseid' => $section->moodle_status];
 
             // If we got section data.
             if ($section) {
@@ -437,19 +460,6 @@ public static function undo_crosslist($crosslistid) {
         // Create the shortname.
         $shortname = $fullname;
 
-/*
-echo"<pre>";
-echo("Short Name: " . $shortname);
-echo"</pre>";
-echo"<pre>";
-echo("ID Number: " . $idnumber);
-echo"</pre>";
-echo"<pre>";
-echo("Full Name: " . $fullname);
-echo"</pre>";
-die();
-*/
-
         // Start transaction.
         $transaction = $DB->start_delegated_transaction();
 
@@ -514,8 +524,20 @@ die();
             // Use user's preferred course format.
             $course->format = $userprefs->format;
 
-            // Create course in Moodle.
-            $course = create_course($course);
+            $excourseidn = $DB->get_record('course', ['idnumber' => $idnumber]);
+            $excoursesn = $DB->get_record('course', ['shortname' => $shortname]);
+
+            if ($excourseidn && $excoursesn && ($excourseidn->id != $excoursesn->id)) {
+                mtrace("Absolutely no idea how to deal with two existing but non-matching courses.");
+                mtrace("Existing IDNumber: $excourseidn->idnumber \nExisting ShortName: $excoursesn->id \nProposed ShortName: $fullname \nProposed IDNumber: $idnumber");
+            } else if ($excourseidn && $excoursesn && ($excourseidn->id == $excoursesn->id)) {
+                $course = $excoursesn;
+            } else if ($excourseidn || $excoursesn) {
+                $course = $excoursesn ? $excoursesn : $excourseidn;
+            } else {
+                // Create course in Moodle.
+                $course = create_course($course);
+            }
 
             // Make sure it was created.
             if (!$course->id) {
@@ -578,7 +600,7 @@ die();
         }
 
         // Enroll students from each section.
-        self::process_crosslist_enrollments($crosslistid);
+        self::process_crosslist_enrollments($crosslistid, $oldcourseids);
 
         return $crosslistid;
     }
@@ -619,7 +641,7 @@ die();
      * @param @int $crosslistid The crosslist ID.
      * @return @bool Success or failure.
      */
-    public static function process_crosslist_enrollments($crosslistid) {
+    public static function process_crosslist_enrollments($crosslistid, $oldcourseids) {
         global $DB, $CFG;
 
         // Require workdaystudent for enrollment functionality.
@@ -675,8 +697,16 @@ die();
                 continue;
             }
 
-            // Set this for later use.
-            $originalcourseid = $section->moodle_status;
+            // Grab the original course id and original idnumber for this section.
+            if (isset($oldcourseids[$section->id])) {
+                $originalcourseid = $oldcourseids[$section->id]->courseid;
+                $originalidnumber = $oldcourseids[$section->id]->idnumber;
+            } else {
+
+                // Skip if not set for this section.
+                $originalcourseid = null;
+                $originalidnumber = null;
+            }
 
             // Create a group for this section.
             $groupid = self::create_crosslist_group($crosslist->moodle_course_id, $section);
@@ -699,10 +729,14 @@ die();
                     ['universal_id' => $studenroll->universal_id]
                 );
 
-                if ($student && $student->userid && $studenroll->status != 'Unenrolled') {
+                if ($student &&
+                    $student->userid &&
+                    ($studenroll->drop_date > time() || $studenroll->status != 'unenrolled')
+                ) {
+
+                    $studentroleid = $DB->get_field('role', 'id', ['shortname' => 'student']);
 
                     // Enroll student in crosslisted course.
-                    $studentroleid = $DB->get_field('role', 'id', ['shortname' => 'student']);
                     $plugin->enrol_user($instance,
                         $student->userid,
                         $studentroleid,
@@ -732,11 +766,8 @@ die();
 
                             if ($oldinstance) {
 
-                                // Get the enrolment manager.
-                                $enrolmanager = enrol_get_plugin('workdaystudent');
-
                                 // Unenroll the student.
-                                $enrolmanager->unenrol_user($oldinstance, $student->userid);
+                                $plugin->unenrol_user($oldinstance, $student->userid);
                             }
                         }
                     }

@@ -41,6 +41,16 @@ $id = required_param('id', PARAM_INT);
 // Check if we're undoing the crosslist.
 $undo = optional_param('undo', 0, PARAM_BOOL);
 
+// Set up the page.
+$url = new moodle_url('/blocks/wdsprefs/crosslist_sections.php', ['id' => $id]);
+$PAGE->set_url($url);
+$PAGE->set_context($context);
+$PAGE->set_title(get_string('wdsprefs:crosslistsections', 'block_wdsprefs'));
+$PAGE->set_heading(get_string('wdsprefs:crosslistsections', 'block_wdsprefs'));
+
+// Load required CSS.
+$PAGE->requires->css('/blocks/wdsprefs/styles.css');
+
 // If undoing, process it.
 if ($undo) {
     $result = wdsprefs::undo_crosslist($id);
@@ -61,16 +71,6 @@ if ($undo) {
         );
     }
 }
-
-// Set up the page.
-$url = new moodle_url('/blocks/wdsprefs/crosslist_sections.php', ['id' => $id]);
-$PAGE->set_url($url);
-$PAGE->set_context($context);
-$PAGE->set_title(get_string('wdsprefs:crosslistsections', 'block_wdsprefs'));
-$PAGE->set_heading(get_string('wdsprefs:crosslistsections', 'block_wdsprefs'));
-
-// Load required CSS.
-$PAGE->requires->css('/blocks/wdsprefs/styles.css');
 
 // Add breadcrumbs.
 $PAGE->navbar->add(
