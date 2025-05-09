@@ -42,7 +42,7 @@ class wdsprefs {
             return false;
         }
 
-        // Check 1: No student enrollments in the course.
+        // Check 1: No active student enrollments in the course.
         $sql = "SELECT COUNT(ue.id)
             FROM {user_enrolments} ue
                 INNER JOIN {enrol} e
@@ -51,10 +51,12 @@ class wdsprefs {
                     ON ra.userid = ue.userid
                 INNER JOIN {context} ctx
                     ON ctx.id = ra.contextid
+                    AND ctx.instanceid = e.courseid
                     AND ctx.contextlevel = 50
                 INNER JOIN {role} r
                     ON r.id = ra.roleid
             WHERE e.enrol = 'workdaystudent'
+                AND (ue.timeend > UNIX_TIMESTAMP() OR ue.timeend = 0) 
                 AND e.courseid = :courseid
                 AND r.shortname = 'student'";
 
@@ -137,7 +139,13 @@ class wdsprefs {
         require_once($CFG->dirroot . '/group/lib.php');
 
          // Add this for create_course function.
-        requsre_once($CFG->dirroot . '/course/lib.php');
+        require_once($CFG->dirroot . '/course/lib.php');
+
+        // Get settings.
+        $s = workdaystudent::get_settings();
+
+        // Get the Moodle course defaults.
+        $coursedefaults = get_config('moodlecourse');
 
         // Start transaction.
         $transaction = $DB->start_delegated_transaction();
@@ -167,14 +175,16 @@ class wdsprefs {
 
                 // Get teacher for this section to create the new course name/ID.
                 $teachersql = "SELECT COALESCE(t.preferred_firstname, t.firstname) AS firstname,
-                           COALESCE(t.preferred_lastname, t.lastname) AS lastname,
-                           t.universal_id
-                           FROM {enrol_wds_teacher_enroll} te
-                           INNER JOIN {enrol_wds_teachers} t
-                               ON t.universal_id = te.universal_id
-                           WHERE te.section_listing_id = :section_listing_id
-                               AND te.role = 'primary'
-                           LIMIT 1";
+                    COALESCE(t.preferred_lastname, t.lastname) AS lastname,
+                    t.universal_id,
+                    te.role,
+                    t.userid
+                    FROM {enrol_wds_teacher_enroll} te
+                        INNER JOIN {enrol_wds_teachers} t
+                            ON t.universal_id = te.universal_id
+                    WHERE te.section_listing_id = :section_listing_id
+                        AND te.role = 'primary'
+                    LIMIT 1";
 
                 // Build out the parms.
                 $teachparms = ['section_listing_id' => $section->section_listing_id];
@@ -219,12 +229,13 @@ class wdsprefs {
                         $teacher->firstname . ' ' .
                         $teacher->lastname;
 
+                    // Build out the new course obj.
                     $coursedata = new stdClass();
                     $coursedata->fullname = $fullname;
                     $coursedata->shortname = $fullname;
                     $coursedata->idnumber = $idnumber;
                     $coursedata->numsections = $coursedefaults->numsections;
-                    $coursedata->category = $ccat;
+                    $coursedata->category = $ccat->id;
                     $coursedata->visible = 1;
 
                     $excourseidn = $DB->get_record('course', ['idnumber' => $idnumber]);
@@ -242,13 +253,33 @@ class wdsprefs {
                         $newcourse = create_course($coursedata);
                     }
 
+                    // Set this for enrollment.
                     $courseid = $newcourse->id;
 
-                    // TODO: Switch to wds enrollment: Enroll the teacher.
-                    $teacheruser = $DB->get_record('user', ['idnumber' => $teacher->universal_id]);
-                    if ($teacheruser) {
-                        $teacherroleid = $DB->get_field('role', 'id', ['shortname' => 'editingteacher']);
-                        enrol_try_internal_enrol($courseid, $teacheruser->id, $teacherroleid);
+                    // Make sure we're working with someone here.
+                    if ($teacher) {
+
+                        // Get the enrollment plugin.
+                        $plugin = enrol_get_plugin('workdaystudent');
+
+                        // Get or create enrollment instance.
+                        $instance = $DB->get_record('enrol',
+                            ['courseid' => $courseid, 'enrol' => 'workdaystudent']);
+
+                        if (!$instance) {
+                            $instance = workdaystudent::wds_create_enrollment_instance($courseid);
+                        }
+
+                        // Enroll user as teacher in the course.
+                        $teacherroleid = $s->primaryrole;
+
+                        // Enroll the teacher.
+                        $plugin->enrol_user($instance,
+                            $teacher->userid,
+                            $teacherroleid,
+                            time(),
+                            0,
+                            ENROL_USER_ACTIVE);
                     }
                 }
 
@@ -280,9 +311,17 @@ class wdsprefs {
                     $groupid = $existinggroup->id;
                 }
 
+                $senrollsql = "SELECT * FROM {enrol_wds_student_enroll}
+                    WHERE section_listing_id = :slid
+                    AND (status = :status1 OR status = :status2)";
+                $senrollparms = [
+                    'slid' => $section->section_listing_id,
+                    'status1' => 'enroll',
+                    'status2' => 'enrolled'
+                ];
+
                 // Get student enrollments for this section.
-                $studentenrolls = $DB->get_records('enrol_wds_student_enroll',
-                    ['section_listing_id' => $section->section_listing_id]);
+                $studentenrolls = $DB->get_records_sql($senrollsql, $senrollparms);
 
                 // Get the enrollment plugin.
                 $plugin = enrol_get_plugin('workdaystudent');
@@ -371,7 +410,7 @@ class wdsprefs {
         // Check if a group already exists for this section.
         $groupname = $section->course_subject_abbreviation . ' ' .
             $coursenumber . ' ' .
-            $section->section_number . '-';
+            $section->section_number;
 
         $existinggroup = $DB->get_record('groups',
             ['courseid' => $courseid, 'name' => $groupname]);
@@ -689,8 +728,28 @@ class wdsprefs {
         // Enroll user as teacher in the course.
         $teacherroleid = $s->primaryrole;
 
-        if (!enrol_try_internal_enrol($course->id, $userid, $teacherroleid)) {
-            throw new Exception('Failed to enroll creator as teacher');
+        // Get the enrollment plugin.
+        $plugin = enrol_get_plugin('workdaystudent');
+
+        // Get or create enrollment instance for the course.
+        $instance = $DB->get_record('enrol',
+            ['courseid' => $course->id, 'enrol' => 'workdaystudent']);
+
+        // If no instance exists, create a new one.
+        if (!$instance) {
+            $instance = workdaystudent::wds_create_enrollment_instance($course->id);
+        }
+
+        // Enroll user as teacher in the course using WDS.
+        try {
+            $plugin->enrol_user($instance,
+                $userid,
+                $teacherroleid,
+                time(),
+                0,
+                ENROL_USER_ACTIVE);
+        } catch (Exception $e) {
+            mtrace("Failed to enroll creator as teacher: " . $e->getMessage());
         }
 
         // Enroll students from each section.
@@ -775,9 +834,6 @@ class wdsprefs {
         // Set the students table.
         $stutable = 'enrol_wds_students';
 
-        // Set the section student enrollment table.
-        $stuenrtable = 'enrol_wds_student_enroll';
-
         // Set the section table.
         $stable = 'enrol_wds_sections';
 
@@ -825,10 +881,18 @@ class wdsprefs {
                 ['id' => $section->id]
             );
 
-            // Get all student enrollments for this section.
-            $studentenrolls = $DB->get_records($stuenrtable,
-                ['section_listing_id' => $section->section_listing_id]
-            );
+            $senrollsql = "SELECT * FROM {enrol_wds_student_enroll}
+                WHERE section_listing_id = :slid
+                AND (status = :status1 OR status = :status2)";
+
+            $senrollparms = [
+                'slid' => $section->section_listing_id,
+                'status1' => 'enroll',
+                'status2' => 'enrolled'
+            ];
+
+            // Get student enrollments for this section.
+            $studentenrolls = $DB->get_records_sql($senrollsql, $senrollparms);
 
             // Process each student enrollment.
             foreach ($studentenrolls as $studenroll) {
@@ -912,7 +976,13 @@ class wdsprefs {
      * @return bool Success or failure
      */
     public static function process_crosslist_teacher_enrollments($courseid, $section, $groupid = null) {
-        global $DB;
+        global $CFG, $DB;
+
+        // Get settings.
+        $s = workdaystudent::get_settings();
+
+        // Require workdaystudent for enrollment functionality.
+        require_once($CFG->dirroot . '/enrol/workdaystudent/classes/workdaystudent.php');
 
         // Get teacher enrollments for this section.
         $teacherenrolls = $DB->get_records('enrol_wds_teacher_enroll',
@@ -923,7 +993,20 @@ class wdsprefs {
             return false;
         }
 
-        $teacherroleid = $DB->get_field('role', 'id', ['shortname' => 'editingteacher']);
+        $teacherroleid = $s->primaryrole;
+
+        // Get the enrollment plugin.
+        $plugin = enrol_get_plugin('workdaystudent');
+
+        // Get or create enrollment instance for the course.
+        $instance = $DB->get_record('enrol',
+            ['courseid' => $courseid, 'enrol' => 'workdaystudent']);
+
+        // If no instance exists, create a new one.
+        if (!$instance) {
+            $instance = workdaystudent::wds_create_enrollment_instance($courseid);
+        }
+
 
         // Process each teacher enrollment.
         foreach ($teacherenrolls as $teacherenroll) {
@@ -935,8 +1018,13 @@ class wdsprefs {
 
             if ($teacher && $teacher->userid) {
 
-                // Enroll teacher in crosslisted course.
-                enrol_try_internal_enrol($courseid, $teacher->userid, $teacherroleid);
+                // Enroll teacher in crosslisted course using the plugin method.
+                $plugin->enrol_user($instance,
+                    $teacher->userid,
+                    $teacherroleid,
+                    time(),
+                    0,
+                    ENROL_USER_ACTIVE);
 
                 if ($groupid) {
                      self::add_user_to_crosslist_group($courseid, $teacher->userid, $groupid);
