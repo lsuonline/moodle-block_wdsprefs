@@ -25,47 +25,148 @@ require_once("$CFG->dirroot/enrol/workdaystudent/classes/workdaystudent.php");
 
 class wdsprefs {
 
-/**
- * Undoes a crosslisting operation, reverting sections back to original course shells.
- *
- * @param @int $crosslistid The crosslist ID to undo.
- * @return @bool Success or failure.
- */
-public static function undo_crosslist($crosslistid) {
-    global $DB, $CFG;
+    /**
+     * Checks if a course can be safely deleted after crosslisting.
+     *
+     * @param @int $courseid The Moodle course ID to check
+     * @return @bool True if the course can be safely deleted
+     */
+    public static function can_delete_original_course($courseid) {
+        global $CFG, $DB;
 
-    // Require workdaystudent for enrollment functionality.
-    require_once($CFG->dirroot . '/enrol/workdaystudent/classes/workdaystudent.php');
-    require_once($CFG->dirroot . '/group/lib.php');
+        // Get WDS stuff for later.
+        require_once($CFG->dirroot . '/enrol/workdaystudent/classes/workdaystudent.php');
 
-     // Add this for create_course function.
-    require_once($CFG->dirroot . '/course/lib.php');
-
-    // Start transaction.
-    $transaction = $DB->start_delegated_transaction();
-
-    try {
-        // Get the crosslist record.
-        $crosslist = $DB->get_record('block_wdsprefs_crosslists', ['id' => $crosslistid], '*', MUST_EXIST);
-
-        // Get all sections in this crosslist.
-        $sections = $DB->get_records('block_wdsprefs_crosslist_sections', ['crosslist_id' => $crosslistid]);
-
-        if (empty($sections)) {
-            throw new Exception('No sections found for this crosslisted shell');
+        // Don't delete if no course ID.
+        if (empty($courseid) || !is_numeric($courseid)) {
+            return false;
         }
 
-        // Process each section.
-        foreach ($sections as $clsection) {
-            // Get the actual section.
-            $section = $DB->get_record('enrol_wds_sections', ['id' => $clsection->section_id]);
+        // Check 1: No student enrollments in the course.
+        $sql = "SELECT COUNT(ue.id)
+            FROM {user_enrolments} ue
+                INNER JOIN {enrol} e
+                    ON e.id = ue.enrolid
+                INNER JOIN {role_assignments} ra
+                    ON ra.userid = ue.userid
+                INNER JOIN {context} ctx
+                    ON ctx.id = ra.contextid
+                    AND ctx.contextlevel = 50
+                INNER JOIN {role} r
+                    ON r.id = ra.roleid
+            WHERE e.enrol = 'workdaystudent'
+                AND e.courseid = :courseid
+                AND r.shortname = 'student'";
 
-            if (!$section) {
-                continue;
+        $parms = ['courseid' => $courseid];
+
+        $studentcount = $DB->count_records_sql($sql, $parms);
+
+        if ($studentcount > 0) {
+            return false;
+        }
+
+        // Check 2: No grades or course materials.
+        $materials = workdaystudent::wds_course_has_materials($courseid);
+
+        // $materials is true if we have either materials or grades/grades history.
+        if ($materials) {
+            return false;
+        }
+
+        // If we've passed all checks, it's safe to delete.
+        return true;
+    }
+
+    /**
+     * Delete an original course safely.
+     *
+     * @param @int $courseid The Moodle course ID to delete
+     * @return @bool Success or failure
+     */
+    public static function delete_original_course($courseid) {
+        global $CFG;
+
+        require_once($CFG->dirroot . '/course/lib.php');
+
+        try {
+            // Use Moodle's built-in course deletion function.
+            delete_course($courseid, false);
+            return true;
+        } catch (Exception $e) {
+            mtrace("Error deleting original course: " . $e->getMessage());
+            return false;
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /**
+     * Undoes a crosslisting operation, reverting sections back to original course shells.
+     *
+     * @param @int $crosslistid The crosslist ID to undo.
+     * @return @bool Success or failure.
+     */
+    public static function undo_crosslist($crosslistid) {
+        global $DB, $CFG;
+
+        // Require workdaystudent for enrollment functionality.
+        require_once($CFG->dirroot . '/enrol/workdaystudent/classes/workdaystudent.php');
+        require_once($CFG->dirroot . '/group/lib.php');
+
+         // Add this for create_course function.
+        requsre_once($CFG->dirroot . '/course/lib.php');
+
+        // Start transaction.
+        $transaction = $DB->start_delegated_transaction();
+
+        try {
+            // Get the crosslist record.
+            $crosslist = $DB->get_record('block_wdsprefs_crosslists', ['id' => $crosslistid], '*', MUST_EXIST);
+
+            // Store the crosslisted course ID for potential deletion later.
+            $crosslistedcourseid = $crosslist->moodle_course_id;
+
+            // Get all sections in this crosslist.
+            $sections = $DB->get_records('block_wdsprefs_crosslist_sections', ['crosslist_id' => $crosslistid]);
+
+            if (empty($sections)) {
+                throw new Exception('No sections found for this crosslisted shell');
             }
 
-            // Get teacher for this section to create the new course name/ID.
-            $teachersql = "SELECT COALESCE(t.preferred_firstname, t.firstname) AS firstname,
+            // Process each section.
+            foreach ($sections as $clsection) {
+                // Get the actual section.
+                $section = $DB->get_record('enrol_wds_sections', ['id' => $clsection->section_id]);
+
+                if (!$section) {
+                    continue;
+                }
+
+                // Get teacher for this section to create the new course name/ID.
+                $teachersql = "SELECT COALESCE(t.preferred_firstname, t.firstname) AS firstname,
                            COALESCE(t.preferred_lastname, t.lastname) AS lastname,
                            t.universal_id
                            FROM {enrol_wds_teacher_enroll} te
@@ -74,193 +175,185 @@ public static function undo_crosslist($crosslistid) {
                            AND te.role = 'primary'
                            LIMIT 1";
 
-            $teacher = $DB->get_record_sql($teachersql, ['section_listing_id' => $section->section_listing_id]);
+                // Build out the parms.
+                $teachparms = ['section_listing_id' => $section->section_listing_id];
 
-            if (!$teacher) {
-                throw new Exception('No primary teacher found for section');
-            }
+                // Get the record.
+                $teacher = $DB->get_record_sql($teachersql, $teachparms);
 
-            // Get course info for this section.
-            $course = $DB->get_record('enrol_wds_courses', ['course_listing_id' => $section->course_listing_id]);
+                if (!$teacher) {
+                    throw new Exception('No primary teacher found for section');
+                }
 
-            // Get period info.
-            $period = $DB->get_record('enrol_wds_periods', ['academic_period_id' => $section->academic_period_id]);
+                // Get course info for this section.
+                $course = $DB->get_record('enrol_wds_courses', ['course_listing_id' => $section->course_listing_id]);
 
-            // Create the new idnumber format.
-            $idnumber = $period->period_year .
-                        $period->period_type .
-                        $course->course_subject_abbreviation .
-                        $course->course_number .
-                        '-' . $teacher->universal_id;
+                // Get the category based on subject abbreviation of the wds_course entry.
+                $ccat = self::get_subject_category($course->course_subject_abbreviation);
 
-            // Check if course with this idnumber already exists.
-            $existingcourse = $DB->get_record('course', ['idnumber' => $idnumber]);
+                // Get period info.
+                $period = $DB->get_record('enrol_wds_periods', ['academic_period_id' => $section->academic_period_id]);
 
-            if ($existingcourse) {
-                // Use existing course.
-                $courseid = $existingcourse->id;
-            } else {
-                // Create new course.
-                $fullname = $period->period_year . ' ' .
-                            $period->period_type . ' ' .
-                            $course->course_subject_abbreviation . ' ' .
-                            $course->course_number . ' for ' .
-                            $teacher->firstname . ' ' .
-                            $teacher->lastname;
+                // Create the new idnumber format.
+                $idnumber = $period->period_year .
+                    $period->period_type .
+                    $course->course_subject_abbreviation .
+                    $course->course_number .
+                    '-' . $teacher->universal_id;
 
-                $coursedata = new stdClass();
-                $coursedata->fullname = $fullname;
-                $coursedata->shortname = $fullname;
-                $coursedata->idnumber = $idnumber;
+                // Check if course with this idnumber already exists.
+                $existingcourse = $DB->get_record('course', ['idnumber' => $idnumber]);
 
-                $ccat = (int) $DB->get_field('course', 'category', ['id' => $crosslist->moodle_course_id]);
-                $coursedata->category = $ccat;
-                $coursedata->visible = 1;
+                if ($existingcourse) {
 
-                $excourseidn = $DB->get_record('course', ['idnumber' => $idnumber]);
-                $excoursesn = $DB->get_record('course', ['shortname' => $fullname]);
-
-                if ($excourseidn && $excoursesn && ($excourseidn->id != $excoursesn->id)) {
-                    mtrace("Absolutely no idea how to deal with two existing but non-matching courses.");
-                    mtrace("Existing IDNumber: $excourseidn->idnumber \nExisting ShortName: $excoursesn->id \nProposed ShortName: $fullname \nProposed IDNumber: $idnumber");
-                } else if ($excourseidn && $excoursesn && ($excourseidn->id == $excoursesn->id)) {
-                    $newcourse = $excoursesn;
-                } else if ($excourseidn || $excoursesn) {
-                    $newcourse = $excoursesn ? $excoursesn : $excourseidn;
+                    // Use existing course.
+                    $courseid = $existingcourse->id;
                 } else {
-                    // Create course in Moodle.
-                    $newcourse = create_course($coursedata);
+
+                    // Create new course.
+                    $fullname = $period->period_year . ' ' .
+                        $period->period_type . ' ' .
+                        $course->course_subject_abbreviation . ' ' .
+                        $course->course_number . ' for ' .
+                        $teacher->firstname . ' ' .
+                        $teacher->lastname;
+
+                    $coursedata = new stdClass();
+                    $coursedata->fullname = $fullname;
+                    $coursedata->shortname = $fullname;
+                    $coursedata->idnumber = $idnumber;
+                    $coursedata->numsections = $coursedefaults->numsections;
+                    $coursedata->category = $ccat;
+                    $coursedata->visible = 1;
+
+                    $excourseidn = $DB->get_record('course', ['idnumber' => $idnumber]);
+                    $excoursesn = $DB->get_record('course', ['shortname' => $fullname]);
+
+                    if ($excourseidn && $excoursesn && ($excourseidn->id != $excoursesn->id)) {
+                        mtrace("Absolutely no idea how to deal with two existing but non-matching courses.");
+                        mtrace("Existing IDNumber: $excourseidn->idnumber \nExisting ShortName: $excoursesn->id \nProposed ShortName: $fullname \nProposed IDNumber: $idnumber");
+                    } else if ($excourseidn && $excoursesn && ($excourseidn->id == $excoursesn->id)) {
+                        $newcourse = $excoursesn;
+                    } else if ($excourseidn || $excoursesn) {
+                        $newcourse = $excoursesn ? $excoursesn : $excourseidn;
+                    } else {
+                        // Create course in Moodle.
+                        $newcourse = create_course($coursedata);
+                    }
+
+                    $courseid = $newcourse->id;
+
+                    // TODO: Switch to wds enrollment: Enroll the teacher.
+                    $teacheruser = $DB->get_record('user', ['idnumber' => $teacher->universal_id]);
+                    if ($teacheruser) {
+                        $teacherroleid = $DB->get_field('role', 'id', ['shortname' => 'editingteacher']);
+                        enrol_try_internal_enrol($courseid, $teacheruser->id, $teacherroleid);
+                    }
                 }
 
-                $courseid = $newcourse->id;
+                // Update section's original idnumber and moodle_status.
+                $section->idnumber = $idnumber;
+                $section->moodle_status = $courseid;
+                $DB->update_record('enrol_wds_sections', $section);
 
-                // Enroll the teacher.
-                $teacheruser = $DB->get_record('user', ['idnumber' => $teacher->universal_id]);
-                if ($teacheruser) {
-                    $teacherroleid = $DB->get_field('role', 'id', ['shortname' => 'editingteacher']);
-                    enrol_try_internal_enrol($courseid, $teacheruser->id, $teacherroleid);
+                // Create group for this section if it doesn't exist.
+                $groupname = $course->course_subject_abbreviation . ' ' .
+                    $course->course_number . ' ' .
+                    $section->section_number;
+
+                $existinggroup = $DB->get_record('groups', [
+                    'courseid' => $courseid,
+                    'name' => $groupname
+                ]);
+
+                if (!$existinggroup) {
+                    $groupdata = new stdClass();
+                    $groupdata->courseid = $courseid;
+                    $groupdata->name = $groupname;
+                    $groupdata->description = 'Auto-generated group for section ' . $groupname;
+                    $groupdata->timecreated = time();
+                    $groupdata->timemodified = time();
+
+                    $groupid = groups_create_group($groupdata);
+                } else {
+                    $groupid = $existinggroup->id;
                 }
-            }
 
-            // Update section's original idnumber and moodle_status.
-            $section->idnumber = $idnumber;
-            $section->moodle_status = $courseid;
-            $DB->update_record('enrol_wds_sections', $section);
+                // Get student enrollments for this section.
+                $studentenrolls = $DB->get_records('enrol_wds_student_enroll',
+                    ['section_listing_id' => $section->section_listing_id]);
 
-            // Create group for this section if it doesn't exist.
-            $groupname = $course->course_subject_abbreviation . ' ' .
-                        $course->course_number . ' ' .
-                        $section->section_number;
+                // Get the enrollment plugin.
+                $plugin = enrol_get_plugin('workdaystudent');
 
-            $existinggroup = $DB->get_record('groups', [
-                'courseid' => $courseid,
-                'name' => $groupname
-            ]);
+                // Get or create enrollment instance for the new course.
+                $instance = $DB->get_record('enrol',
+                    ['courseid' => $courseid, 'enrol' => 'workdaystudent']);
 
-            if (!$existinggroup) {
-                $groupdata = new stdClass();
-                $groupdata->courseid = $courseid;
-                $groupdata->name = $groupname;
-                $groupdata->description = 'Auto-generated group for section ' . $groupname;
-                $groupdata->timecreated = time();
-                $groupdata->timemodified = time();
+                if (!$instance) {
+                    $instance = workdaystudent::wds_create_enrollment_instance($courseid);
+                }
 
-                $groupid = groups_create_group($groupdata);
-            } else {
-                $groupid = $existinggroup->id;
-            }
+                // Process each student enrollment.
+                foreach ($studentenrolls as $studenroll) {
+                    if ($studenroll->status != 'Unenrolled') {
 
-            // Get student enrollments for this section.
-            $studentenrolls = $DB->get_records('enrol_wds_student_enroll',
-                ['section_listing_id' => $section->section_listing_id]);
+                        // Get student record.
+                        $student = $DB->get_record('enrol_wds_students',
+                            ['universal_id' => $studenroll->universal_id]);
 
-            // Get the enrollment plugin.
-            $plugin = enrol_get_plugin('workdaystudent');
+                        if ($student && $student->userid) {
 
-            // Get or create enrollment instance for the new course.
-            $instance = $DB->get_record('enrol',
-                ['courseid' => $courseid, 'enrol' => 'workdaystudent']);
+                            // Enroll student in the original course.
+                            $studentrole = $DB->get_field('role', 'id', ['shortname' => 'student']);
 
-            if (!$instance) {
-                $instance = workdaystudent::wds_create_enrollment_instance($courseid);
-            }
+                            $plugin->enrol_user($instance,
+                                $student->userid,
+                                $studentrole,
+                                $studenroll->registered_date,
+                                $studenroll->drop_date,
+                                ENROL_USER_ACTIVE);
 
-            // Process each student enrollment.
-            foreach ($studentenrolls as $studenroll) {
-                if ($studenroll->status != 'Unenrolled') {
-                    // Get student record.
-                    $student = $DB->get_record('enrol_wds_students',
-                        ['universal_id' => $studenroll->universal_id]);
+                            // Add to group.
+                            if ($groupid) {
+                                groups_add_member($groupid, $student->userid);
+                            }
 
-                    if ($student && $student->userid) {
-                        // Enroll student in the original course.
-                        $studentrole = $DB->get_field('role', 'id', ['shortname' => 'student']);
+                            // Unenroll from crosslisted course.
+                            if ($crosslist->moodle_course_id) {
+                                $oldinstance = $DB->get_record('enrol',
+                                    ['courseid' => $crosslist->moodle_course_id, 'enrol' => 'workdaystudent']);
 
-                        $plugin->enrol_user($instance,
-                            $student->userid,
-                            $studentrole,
-                            $studenroll->registered_date,
-                            $studenroll->drop_date,
-                            ENROL_USER_ACTIVE);
-
-                        // Add to group.
-                        if ($groupid) {
-                            groups_add_member($groupid, $student->userid);
-                        }
-
-                        // Unenroll from crosslisted course.
-                        if ($crosslist->moodle_course_id) {
-                            $oldinstance = $DB->get_record('enrol',
-                                ['courseid' => $crosslist->moodle_course_id, 'enrol' => 'workdaystudent']);
-
-                            if ($oldinstance) {
-                                $plugin->unenrol_user($oldinstance, $student->userid);
+                                if ($oldinstance) {
+                                    $plugin->unenrol_user($oldinstance, $student->userid);
+                                }
                             }
                         }
                     }
                 }
             }
+
+            // Delete crosslist records.
+            $DB->delete_records('block_wdsprefs_crosslist_sections', ['crosslist_id' => $crosslistid]);
+            $DB->delete_records('block_wdsprefs_crosslists', ['id' => $crosslistid]);
+
+            // Commit transaction.
+            $transaction->allow_commit();
+
+            // Check if the crosslisted course can be deleted.
+            if ($crosslistedcourseid) {
+                if (self::can_delete_original_course($crosslistedcourseid)) {
+                    mtrace("Deleting crosslisted course ID $crosslistedcourseid after undo operation as it has no students, grades, or custom content.");
+                    self::delete_original_course($crosslistedcourseid);
+                }
+            }
+
+            return true;
+        } catch (Exception $e) {
+            $transaction->rollback($e);
+            return false;
         }
-
-        // Delete crosslist records.
-        $DB->delete_records('block_wdsprefs_crosslist_sections', ['crosslist_id' => $crosslistid]);
-        $DB->delete_records('block_wdsprefs_crosslists', ['id' => $crosslistid]);
-
-        // Commit transaction.
-        $transaction->allow_commit();
-
-        return true;
-    } catch (Exception $e) {
-        $transaction->rollback($e);
-        return false;
     }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     /**
      * Creates a group for a section in a crosslisted course.
@@ -687,6 +780,10 @@ public static function undo_crosslist($crosslistid) {
         // Set the section table.
         $stable = 'enrol_wds_sections';
 
+        // Track original courses and whether they can be deleted.
+        $originalcoursesdata = [];
+
+
         // Process each section.
         foreach ($sections as $clsection) {
 
@@ -701,6 +798,17 @@ public static function undo_crosslist($crosslistid) {
             if (isset($oldcourseids[$section->id])) {
                 $originalcourseid = $oldcourseids[$section->id]->courseid;
                 $originalidnumber = $oldcourseids[$section->id]->idnumber;
+
+                // Store for later deletion check.
+                if (!empty($originalcourseid) && is_numeric($originalcourseid)) {
+                    if (!isset($originalcoursesdata[$originalcourseid])) {
+                        $originalcoursesdata[$originalcourseid] = [
+                            'idnumber' => $originalidnumber,
+                            'sections' => []
+                        ];
+                    }
+                    $originalcoursesdata[$originalcourseid]['sections'][] = $section->id;
+                }
             } else {
 
                 // Skip if not set for this section.
@@ -781,6 +889,15 @@ public static function undo_crosslist($crosslistid) {
             $DB->set_field('block_wdsprefs_crosslist_sections', 'status', 'enrolled',
                 ['id' => $clsection->id]
             );
+        }
+
+        // Now check if the original courses can be deleted.
+        foreach ($originalcoursesdata as $originalcourseid => $data) {
+            if (self::can_delete_original_course($originalcourseid)) {
+                // Log the deletion
+                mtrace("Deleting original course ID $originalcourseid (idnumber: {$data['idnumber']}) after crosslisting as it has no students, grades, or custom content");
+                self::delete_original_course($originalcourseid);
+            }
         }
 
         return true;
