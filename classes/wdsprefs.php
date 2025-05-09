@@ -170,9 +170,10 @@ class wdsprefs {
                            COALESCE(t.preferred_lastname, t.lastname) AS lastname,
                            t.universal_id
                            FROM {enrol_wds_teacher_enroll} te
-                           JOIN {enrol_wds_teachers} t ON t.universal_id = te.universal_id
+                           INNER JOIN {enrol_wds_teachers} t
+                               ON t.universal_id = te.universal_id
                            WHERE te.section_listing_id = :section_listing_id
-                           AND te.role = 'primary'
+                               AND te.role = 'primary'
                            LIMIT 1";
 
                 // Build out the parms.
@@ -979,7 +980,8 @@ class wdsprefs {
         // Build the SQL.
         $sql = "SELECT DISTINCT(c.course_number) AS course_number
             FROM {enrol_wds_sections} s
-            INNER JOIN {enrol_wds_courses} c ON c.course_listing_id = s.course_listing_id
+            INNER JOIN {enrol_wds_courses} c
+                ON c.course_listing_id = s.course_listing_id
             WHERE s.id = :sectionid";
 
         // Build the parms.
@@ -1008,9 +1010,12 @@ class wdsprefs {
                    c.course_subject_abbreviation, c.course_number,
                    p.period_year, p.period_type
             FROM {block_wdsprefs_crosslist_sections} cs
-            JOIN {enrol_wds_sections} s ON s.id = cs.section_id
-            JOIN {enrol_wds_courses} c ON c.course_listing_id = s.course_listing_id
-            JOIN {enrol_wds_periods} p ON p.academic_period_id = s.academic_period_id
+            INNER JOIN {enrol_wds_sections} s
+                ON s.id = cs.section_id
+            INNER JOIN {enrol_wds_courses} c
+                ON c.course_listing_id = s.course_listing_id
+            INNER JOIN {enrol_wds_periods} p
+                ON p.academic_period_id = s.academic_period_id
             WHERE cs.crosslist_id = :crosslistid
             ORDER BY c.course_subject_abbreviation, c.course_number, s.section_number";
 
@@ -1038,8 +1043,10 @@ class wdsprefs {
             course.fullname,
             course.shortname
             FROM {block_wdsprefs_crosslists} c
-            JOIN {enrol_wds_periods} p ON p.academic_period_id = c.academic_period_id
-            LEFT JOIN {course} course ON course.id = c.moodle_course_id
+            INNER JOIN {enrol_wds_periods} p
+                ON p.academic_period_id = c.academic_period_id
+            LEFT JOIN {course} course
+                ON course.id = c.moodle_course_id
             WHERE c.id = :crosslistid";
 
         // Set the parameters.
@@ -1108,7 +1115,8 @@ class wdsprefs {
                                 cou.course_subject_abbreviation,
                                 cou.course_number
                          FROM {enrol_wds_sections} sec
-                         JOIN {enrol_wds_courses} cou ON cou.course_listing_id = sec.course_listing_id
+                         INNER JOIN {enrol_wds_courses} cou
+                             ON cou.course_listing_id = sec.course_listing_id
                          WHERE sec.id = :sectionid";
 
                          // Build the parms.
@@ -1645,7 +1653,8 @@ class wdsprefs {
                     ON sec.section_listing_id = tenr.section_listing_id
                 INNER JOIN {enrol_wds_teachers} tea
                     ON tea.universal_id = tenr.universal_id
-                LEFT JOIN {course} c ON c.id = sec.moodle_status
+                LEFT JOIN {course} c
+                    ON c.id = sec.moodle_status
             WHERE per.end_date > UNIX_TIMESTAMP()
                 AND sec.controls_grading = 1
                 AND tenr.role = 'primary'
