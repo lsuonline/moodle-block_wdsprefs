@@ -86,17 +86,19 @@ class block_wdsprefs extends block_base {
                 'icontype' => 'fontawesome',
                 'icon' => 'fa-landmark'
             ],
+/*
             [
                 'text' => get_string('wdsprefs:split', 'block_wdsprefs'),
                 'url' => new moodle_url('/blocks/wdsprefs/splitview.php'),
                 'icontype' => 'fontawesome',
                 'icon' => 'fa-folder-tree'
             ],
+*/
             [
                 'text' => get_string('wdsprefs:crosslist', 'block_wdsprefs'),
                 'url' => new moodle_url('/blocks/wdsprefs/crosslist.php'),
                 'icontype' => 'fontawesome',
-                'icon' => 'fa-link'
+                'icon' => 'fa-folder-tree'
             ],
             [
                 'text' => get_string('wdsprefs:teamteach', 'block_wdsprefs'),

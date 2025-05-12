@@ -152,8 +152,8 @@ if ($step == 'period') {
         }
 
         // Verify at least two sections are selected (required for crosslisting).
-        if (count($sectiondata) < 2) {
-            echo $OUTPUT->notification(get_string('wdsprefs:atleasttwosections',
+        if (count($sectiondata) < 1) {
+            echo $OUTPUT->notification(get_string('wdsprefs:atleastonesection',
                 'block_wdsprefs'), 'notifyproblem');
             $form2->display();
             echo $OUTPUT->footer();
