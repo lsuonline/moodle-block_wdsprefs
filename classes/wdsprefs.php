@@ -56,7 +56,7 @@ class wdsprefs {
                 INNER JOIN {role} r
                     ON r.id = ra.roleid
             WHERE e.enrol = 'workdaystudent'
-                AND (ue.timeend > UNIX_TIMESTAMP() OR ue.timeend = 0) 
+                AND (ue.timeend > UNIX_TIMESTAMP() OR ue.timeend = 0)
                 AND e.courseid = :courseid
                 AND r.shortname = 'student'";
 
@@ -163,6 +163,9 @@ class wdsprefs {
             if (empty($sections)) {
                 throw new Exception('No sections found for this crosslisted shell');
             }
+
+            // Get the enrollment plugin.
+            $plugin = enrol_get_plugin('workdaystudent');
 
             // Process each section.
             foreach ($sections as $clsection) {
@@ -309,6 +312,68 @@ class wdsprefs {
                     $groupid = groups_create_group($groupdata);
                 } else {
                     $groupid = $existinggroup->id;
+                }
+
+                // Get or create enrollment instance for the course.
+                $instance = $DB->get_record('enrol',
+                    ['courseid' => $courseid, 'enrol' => 'workdaystudent']);
+
+                if (!$instance) {
+                    $instance = workdaystudent::wds_create_enrollment_instance($courseid);
+                }
+
+                // Enroll the primary teacher.
+                if ($teacher && $teacher->userid) {
+                    $teacherroleid = $s->primaryrole;
+                    $plugin->enrol_user($instance,
+                        $teacher->userid,
+                        $teacherroleid,
+                        time(),
+                        0,
+                        ENROL_USER_ACTIVE);
+                }
+
+                // Add to group.
+                if ($groupid) {
+                    groups_add_member($groupid, $teacher->userid);
+                }
+
+
+                $teacherenrollparms = [
+                    'section_listing_id' => $section->section_listing_id,
+                    'role' => 'teacher'
+                ];
+
+                // Get and enroll all non-primary teachers for this section.
+                $teacherenrolls = $DB->get_records('enrol_wds_teacher_enroll', $teacherenrollparms);
+
+                // Loop through them.
+                foreach ($teacherenrolls as $tenroll) {
+
+                    // Let's NOT enroll the same person more than once.
+                    if ($tenroll->universal_id != $teacher->universal_id) {
+
+                        // Build out the record.
+                        $additionalteacher = $DB->get_record('enrol_wds_teachers',
+                        ['universal_id' => $tenroll->universal_id]);
+
+                        if ($additionalteacher && $additionalteacher->userid) {
+
+                            // Enroll secondary teacher with appropriate role.
+                            $teachrole = ($tenroll->role == 'teacher') ? $s->nonprimaryrole : $s->primaryrole;
+                            $plugin->enrol_user($instance,
+                                $additionalteacher->userid,
+                                $teachrole,
+                                time(),
+                                0,
+                                ENROL_USER_ACTIVE);
+
+                            // Add to group.
+                            if ($groupid) {
+                                groups_add_member($groupid, $additionalteacher->userid);
+                            }
+                        }
+                    }
                 }
 
                 $senrollsql = "SELECT * FROM {enrol_wds_student_enroll}
