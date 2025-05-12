@@ -26,7 +26,7 @@ require_once("$CFG->dirroot/enrol/workdaystudent/classes/workdaystudent.php");
 class wdsprefs {
 
     /**
-     * Checks if a course can be safely deleted after crosslisting.
+     * Checks if a course can be safely deleted after crossspliting.
      *
      * @param @int $courseid The Moodle course ID to check
      * @return @bool True if the course can be safely deleted
@@ -126,12 +126,12 @@ class wdsprefs {
 
 
     /**
-     * Undoes a crosslisting operation, reverting sections back to original course shells.
+     * Undoes a crossspliting operation, reverting sections back to original course shells.
      *
-     * @param @int $crosslistid The crosslist ID to undo.
+     * @param @int $crosssplitid The crosssplit ID to undo.
      * @return @bool Success or failure.
      */
-    public static function undo_crosslist($crosslistid) {
+    public static function undo_crosssplit($crosssplitid) {
         global $DB, $CFG;
 
         // Require workdaystudent for enrollment functionality.
@@ -151,17 +151,17 @@ class wdsprefs {
         $transaction = $DB->start_delegated_transaction();
 
         try {
-            // Get the crosslist record.
-            $crosslist = $DB->get_record('block_wdsprefs_crosslists', ['id' => $crosslistid], '*', MUST_EXIST);
+            // Get the crosssplit record.
+            $crosssplit = $DB->get_record('block_wdsprefs_crosssplits', ['id' => $crosssplitid], '*', MUST_EXIST);
 
-            // Store the crosslisted course ID for potential deletion later.
-            $crosslistedcourseid = $crosslist->moodle_course_id;
+            // Store the crosssplited course ID for potential deletion later.
+            $crosssplitedcourseid = $crosssplit->moodle_course_id;
 
-            // Get all sections in this crosslist.
-            $sections = $DB->get_records('block_wdsprefs_crosslist_sections', ['crosslist_id' => $crosslistid]);
+            // Get all sections in this crosssplit.
+            $sections = $DB->get_records('block_wdsprefs_crosssplit_sections', ['crosssplit_id' => $crosssplitid]);
 
             if (empty($sections)) {
-                throw new Exception('No sections found for this crosslisted shell');
+                throw new Exception('No sections found for this crosssplited shell');
             }
 
             // Get the enrollment plugin.
@@ -424,10 +424,10 @@ class wdsprefs {
                                 groups_add_member($groupid, $student->userid);
                             }
 
-                            // Unenroll from crosslisted course.
-                            if ($crosslist->moodle_course_id) {
+                            // Unenroll from crosssplited course.
+                            if ($crosssplit->moodle_course_id) {
                                 $oldinstance = $DB->get_record('enrol',
-                                    ['courseid' => $crosslist->moodle_course_id, 'enrol' => 'workdaystudent']);
+                                    ['courseid' => $crosssplit->moodle_course_id, 'enrol' => 'workdaystudent']);
 
                                 if ($oldinstance) {
                                     $plugin->unenrol_user($oldinstance, $student->userid);
@@ -438,18 +438,18 @@ class wdsprefs {
                 }
             }
 
-            // Delete crosslist records.
-            $DB->delete_records('block_wdsprefs_crosslist_sections', ['crosslist_id' => $crosslistid]);
-            $DB->delete_records('block_wdsprefs_crosslists', ['id' => $crosslistid]);
+            // Delete crosssplit records.
+            $DB->delete_records('block_wdsprefs_crosssplit_sections', ['crosssplit_id' => $crosssplitid]);
+            $DB->delete_records('block_wdsprefs_crosssplits', ['id' => $crosssplitid]);
 
             // Commit transaction.
             $transaction->allow_commit();
 
-            // Check if the crosslisted course can be deleted.
-            if ($crosslistedcourseid) {
-                if (self::can_delete_original_course($crosslistedcourseid)) {
-                    mtrace("Deleting crosslisted course ID $crosslistedcourseid after undo operation as it has no students, grades, or custom content.");
-                    self::delete_original_course($crosslistedcourseid);
+            // Check if the crosssplited course can be deleted.
+            if ($crosssplitedcourseid) {
+                if (self::can_delete_original_course($crosssplitedcourseid)) {
+                    mtrace("Deleting crosssplited course ID $crosssplitedcourseid after undo operation as it has no students, grades, or custom content.");
+                    self::delete_original_course($crosssplitedcourseid);
                 }
             }
 
@@ -461,13 +461,13 @@ class wdsprefs {
     }
 
     /**
-     * Creates a group for a section in a crosslisted course.
+     * Creates a group for a section in a crosssplited course.
      *
      * @param @int $courseid The course ID.
      * @param @object $section The section object.
      * @return @int Group ID or false on failure.
      */
-    public static function create_crosslist_group($courseid, $section) {
+    public static function create_crosssplit_group($courseid, $section) {
         global $DB;
 
         $coursenumber = self::get_coursenumber_from_section($section->id);
@@ -488,7 +488,7 @@ class wdsprefs {
         $groupdata = new stdClass();
         $groupdata->courseid = $courseid;
         $groupdata->name = $groupname;
-        $groupdata->description = 'Auto-generated group for crosslisted section ' .
+        $groupdata->description = 'Auto-generated group for crosssplited section ' .
             $section->course_subject_abbreviation . ' ' .
             $coursenumber . ' ' .
             $section->section_number;
@@ -499,28 +499,28 @@ class wdsprefs {
     }
 
     /**
-     * Adds a user to appropriate group for a crosslisted section.
+     * Adds a user to appropriate group for a crosssplited section.
      *
      * @param @int $courseid The course ID.
      * @param @int $userid The user ID.
      * @param @int $groupid The group ID.
      * @return @bool Success or failure.
      */
-    public static function add_user_to_crosslist_group($courseid, $userid, $groupid) {
+    public static function add_user_to_crosssplit_group($courseid, $userid, $groupid) {
         // Use Moodle's group function to add the user.
         return groups_add_member($groupid, $userid);
     }
 
     /**
-     * Creates a crosslisted course shell and assigns sections to it.
+     * Creates a crosssplited course shell and assigns sections to it.
      *
-     * @param @int $userid User ID creating the crosslist.
+     * @param @int $userid User ID creating the crosssplit.
      * @param @string $periodid The academic period ID.
-     * @param @array $sectionids Array of section IDs to be included in the crosslisted course.
-     * @param @string $shellname Name for the crosslisted shell.
-     * @return @int | @bool The new crosslist_id if successful, false on failure.
+     * @param @array $sectionids Array of section IDs to be included in the crosssplited course.
+     * @param @string $shellname Name for the crosssplited shell.
+     * @return @int | @bool The new crosssplit_id if successful, false on failure.
      */
-    public static function create_crosslist_shell($userid, $periodid, $sectionids, $shellname, $shellcount) {
+    public static function create_crosssplit_shell($userid, $periodid, $sectionids, $shellname, $shellcount) {
         global $DB, $CFG;
 
         // Require workdaystudent for course creation functionality.
@@ -556,7 +556,7 @@ class wdsprefs {
         // Collect old courseids.
         $oldcourseids = [];
 
-        // Loop through the crosslisted sections to get the identifiers.
+        // Loop through the crosssplited sections to get the identifiers.
         foreach ($sectionids as $sectionid) {
 
             // Get the section object.
@@ -662,21 +662,21 @@ class wdsprefs {
         $transaction = $DB->start_delegated_transaction();
 
         try {
-            // Create crosslist record.
-            $crosslist = new stdClass();
-            $crosslist->userid = $userid;
-            $crosslist->universal_id = $universalid;
-            $crosslist->academic_period_id = $period->academic_period_id;
-            $crosslist->shell_name = $fullname;
-            $crosslist->status = 'pending';
-            $crosslist->timecreated = time();
-            $crosslist->timemodified = time();
+            // Create crosssplit record.
+            $crosssplit = new stdClass();
+            $crosssplit->userid = $userid;
+            $crosssplit->universal_id = $universalid;
+            $crosssplit->academic_period_id = $period->academic_period_id;
+            $crosssplit->shell_name = $fullname;
+            $crosssplit->status = 'pending';
+            $crosssplit->timecreated = time();
+            $crosssplit->timemodified = time();
 
             // Insert record first.
-            $crosslistid = $DB->insert_record('block_wdsprefs_crosslists', $crosslist);
+            $crosssplitid = $DB->insert_record('block_wdsprefs_crosssplits', $crosssplit);
 
-            if (!$crosslistid) {
-                throw new Exception('Failed to create crosslist record');
+            if (!$crosssplitid) {
+                throw new Exception('Failed to create crosssplit record');
             }
 
             // Get the first section to use for course info and category info.
@@ -705,7 +705,7 @@ class wdsprefs {
             $course->shortname = $shortname;
             $course->fullname = $fullname;
             $course->numsections = $coursedefaults->numsections;
-            $course->summary = 'Crosslisted course shell containing sections from multiple courses';
+            $course->summary = 'CrossSplit course shell containing sections from one or more courses';
             $course->idnumber = $idnumber;
 
             // Get the category based on subject of first course.
@@ -742,16 +742,16 @@ class wdsprefs {
                 throw new Exception('Failed to create course');
             }
 
-            // Update crosslist record with moodle course id.
-            $crosslist = new stdClass();
-            $crosslist->id = $crosslistid;
-            $crosslist->shell_name = $fullname;
-            $crosslist->moodle_course_id = $course->id;
-            $crosslist->status = 'created';
-            $crosslist->timemodified = $timecreated;
+            // Update crosssplit record with moodle course id.
+            $crosssplit = new stdClass();
+            $crosssplit->id = $crosssplitid;
+            $crosssplit->shell_name = $fullname;
+            $crosssplit->moodle_course_id = $course->id;
+            $crosssplit->status = 'created';
+            $crosssplit->timemodified = $timecreated;
 
             // Update the record.
-            $DB->update_record('block_wdsprefs_crosslists', $crosslist);
+            $DB->update_record('block_wdsprefs_crosssplits', $crosssplit);
 
             // Process each section.
             foreach ($sectionids as $sectionid) {
@@ -760,17 +760,17 @@ class wdsprefs {
 
                 if ($section) {
 
-                    // Build the crosslist section object.
-                    $crosslistsection = new stdClass();
-                    $crosslistsection->crosslist_id = $crosslistid;
-                    $crosslistsection->section_id = $sectionid;
-                    $crosslistsection->section_listing_id = $section->section_listing_id;
-                    $crosslistsection->status = 'pending';
-                    $crosslistsection->timecreated = $timecreated;
-                    $crosslistsection->timemodified = $timecreated;
+                    // Build the crosssplit section object.
+                    $crosssplitsection = new stdClass();
+                    $crosssplitsection->crosssplit_id = $crosssplitid;
+                    $crosssplitsection->section_id = $sectionid;
+                    $crosssplitsection->section_listing_id = $section->section_listing_id;
+                    $crosssplitsection->status = 'pending';
+                    $crosssplitsection->timecreated = $timecreated;
+                    $crosssplitsection->timemodified = $timecreated;
 
                     // Save section record.
-                    $DB->insert_record('block_wdsprefs_crosslist_sections', $crosslistsection);
+                    $DB->insert_record('block_wdsprefs_crosssplit_sections', $crosssplitsection);
 
                     // Assign the section to the new course shell id and idnumber.
                     $section->moodle_status = $course->id;
@@ -818,9 +818,9 @@ class wdsprefs {
         }
 
         // Enroll students from each section.
-        self::process_crosslist_enrollments($crosslistid, $oldcourseids);
+        self::process_crosssplit_enrollments($crosssplitid, $oldcourseids);
 
-        return $crosslistid;
+        return $crosssplitid;
     }
 
     /**
@@ -854,12 +854,12 @@ class wdsprefs {
     }
 
     /**
-     * Processes student enrollments for a crosslisted course.
+     * Processes student enrollments for a crosssplited course.
      *
-     * @param @int $crosslistid The crosslist ID.
+     * @param @int $crosssplitid The crosssplit ID.
      * @return @bool Success or failure.
      */
-    public static function process_crosslist_enrollments($crosslistid, $oldcourseids) {
+    public static function process_crosssplit_enrollments($crosssplitid, $oldcourseids) {
         global $DB, $CFG;
 
         // Require workdaystudent for enrollment functionality.
@@ -868,14 +868,14 @@ class wdsprefs {
         // Require groups library.
         require_once($CFG->dirroot . '/group/lib.php');
 
-        // Get the crosslist record.
-        $crosslist = $DB->get_record('block_wdsprefs_crosslists', ['id' => $crosslistid]);
-        if (!$crosslist || !$crosslist->moodle_course_id) {
+        // Get the crosssplit record.
+        $crosssplit = $DB->get_record('block_wdsprefs_crosssplits', ['id' => $crosssplitid]);
+        if (!$crosssplit || !$crosssplit->moodle_course_id) {
             return false;
         }
 
-        // Get all sections in this crosslist.
-        $sections = $DB->get_records('block_wdsprefs_crosslist_sections', ['crosslist_id' => $crosslistid]);
+        // Get all sections in this crosssplit.
+        $sections = $DB->get_records('block_wdsprefs_crosssplit_sections', ['crosssplit_id' => $crosssplitid]);
         if (empty($sections)) {
             return false;
         }
@@ -885,15 +885,15 @@ class wdsprefs {
 
         // Try to get existing instance.
         $instance = $DB->get_record('enrol',
-            ['courseid' => $crosslist->moodle_course_id, 'enrol' => 'workdaystudent']);
+            ['courseid' => $crosssplit->moodle_course_id, 'enrol' => 'workdaystudent']);
 
         // If no instance exists, create a new one.
         if (!$instance) {
-            $instance = workdaystudent::wds_create_enrollment_instance($crosslist->moodle_course_id);
+            $instance = workdaystudent::wds_create_enrollment_instance($crosssplit->moodle_course_id);
         }
 
         // Get the course record to retrieve the idnumber.
-        $course = $DB->get_record('course', ['id' => $crosslist->moodle_course_id], 'idnumber');
+        $course = $DB->get_record('course', ['id' => $crosssplit->moodle_course_id], 'idnumber');
         $courseidnumber = $course ? $course->idnumber : '';
 
         // Set the students table.
@@ -939,10 +939,10 @@ class wdsprefs {
             }
 
             // Create a group for this section.
-            $groupid = self::create_crosslist_group($crosslist->moodle_course_id, $section);
+            $groupid = self::create_crosssplit_group($crosssplit->moodle_course_id, $section);
 
             // Assign the section to the new course shell id.
-            $DB->set_field($stable, 'moodle_status', $crosslist->moodle_course_id,
+            $DB->set_field($stable, 'moodle_status', $crosssplit->moodle_course_id,
                 ['id' => $section->id]
             );
 
@@ -974,7 +974,7 @@ class wdsprefs {
 
                     $studentroleid = $DB->get_field('role', 'id', ['shortname' => 'student']);
 
-                    // Enroll student in crosslisted course.
+                    // Enroll student in crosssplited course.
                     $plugin->enrol_user($instance,
                         $student->userid,
                         $studentroleid,
@@ -985,7 +985,7 @@ class wdsprefs {
 
                     // Add student to the section group.
                     if ($groupid) {
-                        self::add_user_to_crosslist_group($crosslist->moodle_course_id,
+                        self::add_user_to_crosssplit_group($crosssplit->moodle_course_id,
                             $student->userid,
                             $groupid
                         );
@@ -1013,10 +1013,10 @@ class wdsprefs {
             }
 
             // Update teacher enrollments and add them to the group.
-            self::process_crosslist_teacher_enrollments($crosslist->moodle_course_id, $section, $groupid);
+            self::process_crosssplit_teacher_enrollments($crosssplit->moodle_course_id, $section, $groupid);
 
-            // Update section's crosslist status.
-            $DB->set_field('block_wdsprefs_crosslist_sections', 'status', 'enrolled',
+            // Update section's crosssplit status.
+            $DB->set_field('block_wdsprefs_crosssplit_sections', 'status', 'enrolled',
                 ['id' => $clsection->id]
             );
         }
@@ -1025,7 +1025,7 @@ class wdsprefs {
         foreach ($originalcoursesdata as $originalcourseid => $data) {
             if (self::can_delete_original_course($originalcourseid)) {
                 // Log the deletion
-                mtrace("Deleting original course ID $originalcourseid (idnumber: {$data['idnumber']}) after crosslisting as it has no students, grades, or custom content");
+                mtrace("Deleting original course ID $originalcourseid (idnumber: {$data['idnumber']}) after crossspliting as it has no students, grades, or custom content");
                 self::delete_original_course($originalcourseid);
             }
         }
@@ -1034,13 +1034,13 @@ class wdsprefs {
     }
 
     /**
-     * Processes teacher enrollments for a section in a crosslisted course.
+     * Processes teacher enrollments for a section in a crosssplited course.
      *
-     * @param int $courseid The crosslisted course ID
+     * @param int $courseid The crosssplited course ID
      * @param object $section The section object
      * @return bool Success or failure
      */
-    public static function process_crosslist_teacher_enrollments($courseid, $section, $groupid = null) {
+    public static function process_crosssplit_teacher_enrollments($courseid, $section, $groupid = null) {
         global $CFG, $DB;
 
         // Get settings.
@@ -1083,7 +1083,7 @@ class wdsprefs {
 
             if ($teacher && $teacher->userid) {
 
-                // Enroll teacher in crosslisted course using the plugin method.
+                // Enroll teacher in crosssplited course using the plugin method.
                 $plugin->enrol_user($instance,
                     $teacher->userid,
                     $teacherroleid,
@@ -1092,7 +1092,7 @@ class wdsprefs {
                     ENROL_USER_ACTIVE);
 
                 if ($groupid) {
-                     self::add_user_to_crosslist_group($courseid, $teacher->userid, $groupid);
+                     self::add_user_to_crosssplit_group($courseid, $teacher->userid, $groupid);
                 }
             }
         }
@@ -1101,17 +1101,17 @@ class wdsprefs {
     }
 
     /**
-     * Gets existing crosslisted shells for a user.
+     * Gets existing crosssplited shells for a user.
      *
      * @param int $userid The user ID
-     * @return array Existing crosslist records
+     * @return array Existing crosssplit records
      */
-    public static function get_user_crosslists($userid) {
+    public static function get_user_crosssplits($userid) {
         global $DB;
 
-        // Build the SQL to get the user's crosslisted courses.
+        // Build the SQL to get the user's crosssplited courses.
         $sql = "SELECT c.*
-            FROM {block_wdsprefs_crosslists} c
+            FROM {block_wdsprefs_crosssplits} c
             WHERE c.userid = :userid
             ORDER BY c.timemodified DESC";
 
@@ -1149,45 +1149,45 @@ class wdsprefs {
     }
 
     /**
-     * Gets sections assigned to a crosslisted shell.
+     * Gets sections assigned to a crosssplited shell.
      *
-     * @param int $crosslistid The crosslist ID
+     * @param int $crosssplitid The crosssplit ID
      * @return array Array of section objects with additional data
      */
-    public static function get_crosslist_sections($crosslistid) {
+    public static function get_crosssplit_sections($crosssplitid) {
         global $DB;
 
         // Build the SQL to get detailed section information.
-        $sql = "SELECT cs.id, cs.crosslist_id, cs.section_id, cs.status,
+        $sql = "SELECT cs.id, cs.crosssplit_id, cs.section_id, cs.status,
                    s.section_number, s.section_listing_id,
                    c.course_subject_abbreviation, c.course_number,
                    p.period_year, p.period_type
-            FROM {block_wdsprefs_crosslist_sections} cs
+            FROM {block_wdsprefs_crosssplit_sections} cs
             INNER JOIN {enrol_wds_sections} s
                 ON s.id = cs.section_id
             INNER JOIN {enrol_wds_courses} c
                 ON c.course_listing_id = s.course_listing_id
             INNER JOIN {enrol_wds_periods} p
                 ON p.academic_period_id = s.academic_period_id
-            WHERE cs.crosslist_id = :crosslistid
+            WHERE cs.crosssplit_id = :crosssplitid
             ORDER BY c.course_subject_abbreviation, c.course_number, s.section_number";
 
         // Set the parameters.
-        $params = ['crosslistid' => $crosslistid];
+        $params = ['crosssplitid' => $crosssplitid];
 
         return $DB->get_records_sql($sql, $params);
     }
 
     /**
-     * Gets detailed information about a crosslisted shell.
+     * Gets detailed information about a crosssplited shell.
      *
-     * @param int $crosslistid The crosslist ID
-     * @return object Crosslist record with additional data
+     * @param int $crosssplitid The crosssplit ID
+     * @return object CrossSplit record with additional data
      */
-    public static function get_crosslist_info($crosslistid) {
+    public static function get_crosssplit_info($crosssplitid) {
         global $DB;
 
-        // Build the SQL to get detailed crosslist information.
+        // Build the SQL to get detailed crosssplit information.
         $sql = "SELECT c.*,
             p.period_year,
             p.period_type,
@@ -1195,21 +1195,21 @@ class wdsprefs {
             course.id as course_id,
             course.fullname,
             course.shortname
-            FROM {block_wdsprefs_crosslists} c
+            FROM {block_wdsprefs_crosssplits} c
             INNER JOIN {enrol_wds_periods} p
                 ON p.academic_period_id = c.academic_period_id
             LEFT JOIN {course} course
                 ON course.id = c.moodle_course_id
-            WHERE c.id = :crosslistid";
+            WHERE c.id = :crosssplitid";
 
         // Set the parameters.
-        $params = ['crosslistid' => $crosslistid];
+        $params = ['crosssplitid' => $crosssplitid];
 
         return $DB->get_record_sql($sql, $params);
     }
 
     /**
-     * Handles the submission of the crosslist form and creates the crosslisted shells.
+     * Handles the submission of the crosssplit form and creates the crosssplited shells.
      *
      * @param object $data Form data
      * @param string $period Period information
@@ -1217,7 +1217,7 @@ class wdsprefs {
      * @param int $shellcount Number of shells to create
      * @return array Array of results with shell information and assigned sections
      */
-    public static function process_crosslist_form($data, $period, $teacher, $shellcount) {
+    public static function process_crosssplit_form($data, $period, $teacher, $shellcount) {
         global $USER, $DB;
 
         // Get the period id.
@@ -1247,8 +1247,8 @@ class wdsprefs {
                 // Create the shell name.
                 $shellname = "$periodname (Shell $i) for $teacher";
 
-                // Create the crosslisted shell.
-                $crosslistid = self::create_crosslist_shell(
+                // Create the crosssplited shell.
+                $crosssplitid = self::create_crosssplit_shell(
                     $USER->id,
                     $periodid,
                     $sectionids,
@@ -1256,7 +1256,7 @@ class wdsprefs {
                     $shellcount
                 );
 
-                if ($crosslistid) {
+                if ($crosssplitid) {
 
                     // Get info about the sections.
                     $sections = [];
@@ -1287,7 +1287,7 @@ class wdsprefs {
 
                     // Store in results.
                     $results[$shellname] = [
-                        'crosslist_id' => $crosslistid,
+                        'crosssplit_id' => $crosssplitid,
                         'sections' => $sections
                     ];
                 }

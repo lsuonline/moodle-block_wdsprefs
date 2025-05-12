@@ -42,7 +42,7 @@
         <INDEX NAME="blueprint_status_ix" UNIQUE="false" FIELDS="status"/>
       </INDEXES>
     </TABLE>
-    <TABLE NAME="block_wdsprefs_crosslists" COMMENT="Stores crosslisted course shells configuration">
+    <TABLE NAME="block_wdsprefs_crosssplits" COMMENT="Stores crosssplited course shells configuration">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="19" NOTNULL="true" SEQUENCE="false"/>
@@ -58,16 +58,16 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="crosslist_uid_ix" UNIQUE="false" FIELDS="userid"/>
-        <INDEX NAME="crosslist_apid_ix" UNIQUE="false" FIELDS="academic_period_id"/>
-        <INDEX NAME="crosslist_unid_ix" UNIQUE="false" FIELDS="universal_id"/>
-        <INDEX NAME="crosslist_status_ix" UNIQUE="false" FIELDS="status"/>
+        <INDEX NAME="crosssplit_uid_ix" UNIQUE="false" FIELDS="userid"/>
+        <INDEX NAME="crosssplit_apid_ix" UNIQUE="false" FIELDS="academic_period_id"/>
+        <INDEX NAME="crosssplit_unid_ix" UNIQUE="false" FIELDS="universal_id"/>
+        <INDEX NAME="crosssplit_status_ix" UNIQUE="false" FIELDS="status"/>
       </INDEXES>
     </TABLE>
-    <TABLE NAME="block_wdsprefs_crosslist_sections" COMMENT="Stores sections assigned to crosslisted course shells">
+    <TABLE NAME="block_wdsprefs_crosssplit_sections" COMMENT="Stores sections assigned to crosssplited course shells">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="crosslist_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="crosssplit_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="section_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="section_listing_id" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="status" TYPE="char" LENGTH="50" NOTNULL="true" DEFAULT="pending" SEQUENCE="false"/>
@@ -76,7 +76,7 @@
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="fk_crosslist_id" TYPE="foreign" FIELDS="crosslist_id" REFTABLE="block_wdsprefs_crosslists" REFFIELDS="id"/>
+        <KEY NAME="fk_crosssplit_id" TYPE="foreign" FIELDS="crosssplit_id" REFTABLE="block_wdsprefs_crosssplits" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>
         <INDEX NAME="cls_section_id_ix" UNIQUE="false" FIELDS="section_id"/>

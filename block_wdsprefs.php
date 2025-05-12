@@ -95,8 +95,8 @@ class block_wdsprefs extends block_base {
             ],
 */
             [
-                'text' => get_string('wdsprefs:crosslist', 'block_wdsprefs'),
-                'url' => new moodle_url('/blocks/wdsprefs/crosslist.php'),
+                'text' => get_string('wdsprefs:crosssplit', 'block_wdsprefs'),
+                'url' => new moodle_url('/blocks/wdsprefs/crosssplit.php'),
                 'icontype' => 'fontawesome',
                 'icon' => 'fa-folder-tree'
             ],
