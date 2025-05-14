@@ -92,7 +92,21 @@ if ($step == 'period') {
         redirect(new moodle_url('/my'));
     } else if ($data = $form1->get_data()) {
 
+        // Get the sections by course.
         $sectionsbycourse = wdsprefs::get_sections_by_course_for_period($data->periodid);
+
+        // Count them.
+        $seccoursecount = count($sectionsbycourse);
+
+        // Check if there are any sections available for crosssplitting.
+        if (empty($sectionsbycourse) || $seccoursecount < 2) {
+            echo $OUTPUT->notification(
+                get_string('wdsprefs:nosectionsavailable', 'block_wdsprefs'),
+                'notifyinfo');
+            echo $OUTPUT->footer();
+            exit;
+        }
+
 
         // Store selection data in session for next step.
         $SESSION->wdsprefs_periodid = $data->periodid;
@@ -154,7 +168,7 @@ if ($step == 'period') {
         // Verify at least two sections are selected (required for crossspliting).
         if (count($sectiondata) < 1) {
             echo $OUTPUT->notification(get_string('wdsprefs:atleastonesection',
-                'block_wdsprefs'), 'notifyproblem');
+                'block_wdsprefs'), 'notify-warning');
             $form2->display();
             echo $OUTPUT->footer();
             exit;
@@ -224,7 +238,7 @@ if ($step == 'period') {
         if (!empty($results)) {
             // Display success message
             echo $OUTPUT->notification(get_string('wdsprefs:crosssplitsuccess',
-                'block_wdsprefs'), 'notifysuccess');
+                'block_wdsprefs'), 'notify-success');
 
             // Display the results for each shell
             foreach ($results as $shellname => $shelldata) {
@@ -266,7 +280,7 @@ if ($step == 'period') {
         } else {
             // Display error message
             echo $OUTPUT->notification(get_string('wdsprefs:crosssplitfail',
-                'block_wdsprefs'), 'notifyerror');
+                'block_wdsprefs'), 'notifyproblem');
 
             // Display the form again
             $form3->display();

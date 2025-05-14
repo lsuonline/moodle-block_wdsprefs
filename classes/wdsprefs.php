@@ -101,30 +101,6 @@ class wdsprefs {
         }
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     /**
      * Undoes a crossspliting operation, reverting sections back to original course shells.
      *
@@ -337,7 +313,6 @@ class wdsprefs {
                 if ($groupid) {
                     groups_add_member($groupid, $teacher->userid);
                 }
-
 
                 $teacherenrollparms = [
                     'section_listing_id' => $section->section_listing_id,
@@ -905,7 +880,6 @@ class wdsprefs {
         // Track original courses and whether they can be deleted.
         $originalcoursesdata = [];
 
-
         // Process each section.
         foreach ($sections as $clsection) {
 
@@ -1071,7 +1045,6 @@ class wdsprefs {
         if (!$instance) {
             $instance = workdaystudent::wds_create_enrollment_instance($courseid);
         }
-
 
         // Process each teacher enrollment.
         foreach ($teacherenrolls as $teacherenroll) {
@@ -1275,7 +1248,7 @@ class wdsprefs {
                          // Build the parms.
                          $parms = ['sectionid' => $sectionid];
 
-                         // Get teh data.
+                         // Get the data.
                          $section = $DB->get_record_sql($ssql, $parms);
 
                         if ($section) {
@@ -1296,30 +1269,6 @@ class wdsprefs {
 
         return $results;
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     /**
      * Gets courses taught by the instructor.
@@ -1709,13 +1658,33 @@ class wdsprefs {
      * @return @array Formatted array of sections grouped by course.
      */
     public static function get_sections_by_course_for_period(string $periodid): array {
-       global $USER, $DB;
+        global $USER, $DB;
 
-       // Get the user's idnumber.
-       $uid = $USER->idnumber;
+        // Get the user's idnumber.
+        $uid = $USER->idnumber;
 
-       // Build SQL query to get all relevant section information.
-       $sql = "SELECT sec.id AS sectionid,
+        // Use named parameters for security.
+        $parms = [
+            'userid' => $uid,
+            'periodid' => $periodid
+        ];
+
+        // Get all sections that are already part of crosssplits.
+        $crosssplitsql = "SELECT DISTINCT(section_id)
+            FROM {block_wdsprefs_crosssplits} cs
+            INNER JOIN {block_wdsprefs_crosssplit_sections} css
+                ON cs.id = css.crosssplit_id
+                AND cs.academic_period_id = :periodid
+                AND cs.universal_id = :userid";
+
+        // Get the data.
+        $crosssplitsections = $DB->get_records_sql($crosssplitsql, $parms);
+
+        // Grab the sectionids for future use.
+        $excludeids = array_keys($crosssplitsections);
+
+        // Build SQL query to get all relevant section information.
+        $sql = "SELECT sec.id AS sectionid,
            p.period_year,
            p.period_type,
            c.course_subject_abbreviation,
@@ -1735,15 +1704,19 @@ class wdsprefs {
                INNER JOIN {enrol_wds_teachers} t
                    ON t.universal_id = tenr.universal_id
            WHERE tenr.universal_id = :userid
-             AND sec.academic_period_id = :periodid
-           GROUP BY sec.id
-           ORDER BY sec.section_listing_id ASC";
+             AND sec.academic_period_id = :periodid";
 
-       // Use named parameters for security.
-       $parms = [
-           'userid' => $uid,
-           'periodid' => $periodid
-       ];
+        // Add condition to exclude already crosssplit sections if we have any.
+        if (!empty($excludeids)) {
+            list($insql, $inparms) = $DB->get_in_or_equal($excludeids, SQL_PARAMS_NAMED, 'exclude_', false);
+            $sql .= " AND sec.id " . $insql;
+            $parms = array_merge(['userid' => $uid, 'periodid' => $periodid], $inparms);
+        } else {
+            $parms = ['userid' => $uid, 'periodid' => $periodid];
+        }
+
+        $sql .= " GROUP BY sec.id
+            ORDER BY sec.section_listing_id ASC";
 
        // Get the actual data.
        $records = $DB->get_records_sql($sql, $parms);
