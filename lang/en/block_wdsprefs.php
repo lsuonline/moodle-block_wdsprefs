@@ -22,6 +22,7 @@
  */
 
 // Plugin stuff.
+$string['pluginname'] = 'Workday Preferences';
 $string['wdsprefs:pluginname'] = 'Workday Preferences';
 
 // Basic stuff.
@@ -76,7 +77,7 @@ $string['wdsprefs:statusheading'] = 'Moodle Status';
 $string['wdsprefs:instructorheading'] = 'Instructor';
 $string['wdsprefs:daysheading'] = 'Days';
 $string['wdsprefs:timesheading'] = 'Times';
-$string['wdsprefs:wdstatusheading'] = 'Workday Status';
+$string['wdsprefs:wdstatusheading'] = 'Section Status';
 $string['wdsprefs:deliverymodeheading'] = 'Delivery Mode';
 $string['wdsprefs:nocourses'] = 'You are not registered for courses in Workday.';
 
