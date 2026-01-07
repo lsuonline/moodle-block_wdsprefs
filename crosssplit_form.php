@@ -138,10 +138,14 @@ class crosssplit_form extends moodleform {
 
         // Create the shell select boxes.
         for ($i = 1; $i <= $shellcount; $i++) {
+            $defaultname = "$period (Shell $i) for $teacher";
+            $mform->addElement('text', "shell_{$i}_name", get_string('wdsprefs:shellname', 'block_wdsprefs'));
+            $mform->setType("shell_{$i}_name", PARAM_TEXT);
+            $mform->setDefault("shell_{$i}_name", $defaultname);
+            $mform->addRule("shell_{$i}_name", null, 'required', null, 'client');
+
             $mform->addElement('html', '
-                <div class="duallist-shell"><label>' .
-                "$period (Shell $i) for $teacher" .
-                '</label><select class="form-control shell-select" ' .
+                <div class="duallist-shell"><select class="form-control shell-select" ' .
                 'id="shell_' . $i . '" data-shell-num="' . $i . '" multiple size="10"></select></div>');
         }
 
