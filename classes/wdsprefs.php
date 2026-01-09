@@ -1541,10 +1541,10 @@ class wdsprefs {
      * Creates a blueprint shell for the instructor.
      *
      * @param @string $userid The user ID.
-     * @param @string $cdid The course definition ID.
+     * @param @string $clid The course listing ID.
      * @return @bool Success or failure.
      */
-    public static function create_blueprint_shell($userid, $cdid) {
+    public static function create_blueprint_shell($userid, $clid) {
         global $DB, $CFG;
 
         // Require workdaystudent for course creation functionality.
@@ -1566,7 +1566,7 @@ class wdsprefs {
         $universalid = $user->idnumber;
 
         // Get course info.
-        $courseinfo = self::get_course_info_by_definition_id($cdid);
+        $courseinfo = self::get_course_info_by_listing_id($clid);
 
         if (!$courseinfo) {
             return false;
@@ -1583,7 +1583,7 @@ class wdsprefs {
             $blueprint = new stdClass();
             $blueprint->userid = $userid;
             $blueprint->universal_id = $universalid;
-            $blueprint->course_definition_id = $cdid;
+            $blueprint->course_listing_id = $clid;
             $blueprint->status = 'pending';
             $blueprint->timecreated = time();
             $blueprint->timemodified = time();
