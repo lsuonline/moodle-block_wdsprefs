@@ -1389,8 +1389,9 @@ class wdsprefs {
         // Set this for parms.
         $universalid = $user->idnumber;
 
-        // Query to get unique courses (by course_definition_id) taught by this instructor.
-        $sql = "SELECT DISTINCT c.course_definition_id,
+        // Query to get unique courses (by course_listing_id) taught by this instructor.
+        $sql = "SELECT DISTINCT c.course_listing_id,
+                c.course_definition_id,
                 c.course_subject_abbreviation,
                 c.course_number,
                 c.course_abbreviated_title AS course_title
@@ -1455,6 +1456,26 @@ class wdsprefs {
 
         return $DB->get_record_sql($sql, $parms);
     }
+
+    /**
+     * Gets course information by course_listing_id.
+     *
+     * @param @string $cdid The course listing ID.
+     * @return @object Course information.
+     */
+    public static function get_course_info_by_listing_id($clid) {
+        global $DB;
+
+        $sql = "SELECT c.*, c.course_abbreviated_title AS course_title
+            FROM {enrol_wds_courses} c
+            WHERE c.course_listing_id = :course_listing_id
+            LIMIT 1";
+
+        $parms = ['course_listing_id' => $clid];
+
+        return $DB->get_record_sql($sql, $parms);
+    }
+
 
     /**
      * Retrieves faculty preferences for a given user.
