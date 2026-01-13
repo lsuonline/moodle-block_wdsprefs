@@ -277,8 +277,20 @@ class wdsprefs {
                         mtrace("Existing IDNumber: $excourseidn->idnumber \nExisting ShortName: $excoursesn->id \nProposed ShortName: $fullname \nProposed IDNumber: $idnumber");
                     } else if ($excourseidn && $excoursesn && ($excourseidn->id == $excoursesn->id)) {
                         $newcourse = $excoursesn;
+
+                        // Fix: Update idnumber if it doesn't match.
+                        if ($newcourse->idnumber !== $idnumber) {
+                            $newcourse->idnumber = $idnumber;
+                            $DB->update_record('course', $newcourse);
+                        }
                     } else if ($excourseidn || $excoursesn) {
                         $newcourse = $excoursesn ? $excoursesn : $excourseidn;
+
+                        // Fix: Update idnumber if it doesn't match.
+                        if ($newcourse->idnumber !== $idnumber) {
+                            $newcourse->idnumber = $idnumber;
+                            $DB->update_record('course', $newcourse);
+                        }
                     } else {
                         // Create course in Moodle.
                         $newcourse = create_course($coursedata);
@@ -784,8 +796,20 @@ class wdsprefs {
                 mtrace("Existing IDNumber: $excourseidn->idnumber \nExisting ShortName: $excoursesn->id \nProposed ShortName: $fullname \nProposed IDNumber: $idnumber");
             } else if ($excourseidn && $excoursesn && ($excourseidn->id == $excoursesn->id)) {
                 $course = $excoursesn;
+
+                // Fix: Update idnumber if it doesn't match.
+                if ($course->idnumber !== $idnumber) {
+                    $course->idnumber = $idnumber;
+                    $DB->update_record('course', $course);
+                }
             } else if ($excourseidn || $excoursesn) {
                 $course = $excoursesn ? $excoursesn : $excourseidn;
+
+                // Fix: Update idnumber if it doesn't match.
+                if ($course->idnumber !== $idnumber) {
+                    $course->idnumber = $idnumber;
+                    $DB->update_record('course', $course);
+                }
             } else {
                 // Create course in Moodle.
                 $course = create_course($course);
