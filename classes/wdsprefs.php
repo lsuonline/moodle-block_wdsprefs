@@ -26,6 +26,59 @@ require_once("$CFG->dirroot/enrol/workdaystudent/classes/workdaystudent.php");
 class wdsprefs {
 
     /**
+     * Handles the submission of the crosslist form and creates the crosslisted shells.
+     *
+     * @param object $data Form data
+     * @param string $period Period information
+     * @param string $teacher Teacher information
+     * @param int $shellcount Number of shells to create
+     * @return array Array of results with shell information and assigned sections
+     */
+    public static function process_crosslist_form($data, $period, $teacher, $shellcount) {
+        return self::process_crosssplit_form($data, $period, $teacher, $shellcount);
+    }
+
+    /**
+     * Gets detailed information about a crosslisted shell.
+     *
+     * @param int $crosslistid The crosslist ID
+     * @return object CrossList record with additional data
+     */
+    public static function get_crosslist_info($crosslistid) {
+        return self::get_crosssplit_info($crosslistid);
+    }
+
+    /**
+     * Gets existing crosslisted shells for a user.
+     *
+     * @param int $userid The user ID
+     * @return array Existing crosslist records
+     */
+    public static function get_user_crosslists($userid) {
+        return self::get_user_crosssplits($userid);
+    }
+
+    /**
+     * Undoes a crosslisting operation, reverting sections back to original course shells.
+     *
+     * @param @int $crosslistid The crosslist ID to undo.
+     * @return @bool Success or failure.
+     */
+    public static function undo_crosslist($crosslistid) {
+        return self::undo_crosssplit($crosslistid);
+    }
+
+    /**
+     * Gets sections assigned to a crosslisted shell.
+     *
+     * @param int $crosslistid The crosslist ID
+     * @return array Array of section objects with additional data
+     */
+    public static function get_crosslist_sections($crosslistid) {
+        return self::get_crosssplit_sections($crosslistid);
+    }
+
+    /**
      * Checks if a course can be safely deleted after crossspliting.
      *
      * @param @int $courseid The Moodle course ID to check
@@ -545,9 +598,11 @@ class wdsprefs {
      * @param @string $periodid The academic period ID.
      * @param @array $sectionids Array of section IDs to be included in the crosssplited course.
      * @param @string $shellname Name for the crosssplited shell.
+     * @param @int $shellcount Total number of shells being created.
+     * @param @int $shellnum The specific shell number (1, 2, etc.)
      * @return @int | @bool The new crosssplit_id if successful, false on failure.
      */
-    public static function create_crosssplit_shell($userid, $periodid, $sectionids, $shellname, $shellcount) {
+    public static function create_crosssplit_shell($userid, $periodid, $sectionids, $shellname, $shellcount, $shellnum = 1) {
         global $DB, $CFG;
 
         // Require workdaystudent for course creation functionality.
@@ -570,12 +625,6 @@ class wdsprefs {
 
         // Get period info.
         $period = self::get_period_from_periodid($periodid);
-
-        // Extract shell number from shell name.
-        $shellnum = 1;
-        if (preg_match('/Shell (\d+)/', $shellname, $matches)) {
-            $shellnum = $matches[1];
-        }
 
         // Collect all course abbreviations and numbers in a structured way.
         $coursesbyprefix = [];
@@ -676,16 +725,20 @@ class wdsprefs {
                     '-cl';
 
         // Generate the fullname - only include (Shell X) if shellnum > 1.
-        $fullname = $periodname .
+        $generatedfullname = $periodname .
                 ' ' . $fnidstring .
                 ' for ' . $user->firstname .
                 ' ' . $user->lastname;
 
         // Add the shell number only if there's more than one shell.
         if ($shellcount > 1) {
-            $fullname .= ' (Shell ' . $shellnum . ')';
+            $generatedfullname .= ' (Shell ' . $shellnum . ')';
             $idnumber .= '-shell_' . $shellnum;
         }
+
+        // Use the provided shellname if it differs from the generated one, otherwise use generated.
+        // Actually, always use the passed shellname as it's what the user confirmed/edited.
+        $fullname = $shellname;
 
         // Set this for the course record and shortname.
         $timecreated = time();
@@ -1298,7 +1351,8 @@ class wdsprefs {
                 }
 
                 // Create the shell name.
-                $shellname = "$periodname (Shell $i) for $teacher";
+                $shellnameinput = "shell_{$i}_name";
+                $shellname = $data->$shellnameinput;
 
                 // Create the crosssplited shell.
                 $crosssplitid = self::create_crosssplit_shell(
@@ -1306,7 +1360,8 @@ class wdsprefs {
                     $periodid,
                     $sectionids,
                     $shellname,
-                    $shellcount
+                    $shellcount,
+                    $i
                 );
 
                 if ($crosssplitid) {
