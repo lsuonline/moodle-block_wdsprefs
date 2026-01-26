@@ -91,6 +91,12 @@ class block_wdsprefs extends block_base {
                     'icon' => 'fa-landmark'
                 ],
                 [
+                    'text' => get_string('wdsprefs:crossenroll', 'block_wdsprefs'),
+                    'url' => new moodle_url('/blocks/wdsprefs/crossenroll.php'),
+                    'icontype' => 'fontawesome',
+                    'icon' => 'fa-compress'
+                ],
+                [
                     'text' => get_string('wdsprefs:crosssplit', 'block_wdsprefs'),
                     'url' => new moodle_url('/blocks/wdsprefs/crosssplit.php'),
                     'icontype' => 'fontawesome',

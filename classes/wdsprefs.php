@@ -660,7 +660,8 @@ class wdsprefs {
         $fnidstring = implode(' / ', $fullnameidentifiers);
 
         // Build the period name.
-        $periodname = self::get_current_taught_periods($section->academic_period_id);
+//        $periodname = self::get_current_taught_periods($section->academic_period_id);
+        $periodname = self::get_current_taught_periods($period->academic_period_id);
         $periodname = reset($periodname);
 
         // Remove space between year and term.
@@ -1276,7 +1277,8 @@ class wdsprefs {
         $periodid = $period->id;
 
         // Build the period name.
-        $periodname = self::get_current_taught_periods($periodid);
+//        $periodname = self::get_current_taught_periods($periodid);
+        $periodname = self::get_current_taught_periods($period->academic_period_id);
         $periodname = reset($periodname);
 
         // Prepare array to store results.
@@ -2185,4 +2187,181 @@ class wdsprefs {
         return $student;
     }
 
+    /**
+     * Gets sections taught by current user for all valid academic periods.
+     *
+     * @param string $targetperiodid The academic period ID of the target shell
+     * @return @array Formatted array of sections grouped by period and course.
+     */
+    public static function get_sections_across_periods($targetperiodid): array {
+        global $USER, $DB;
+
+        // Get the user's idnumber.
+        $uid = $USER->idnumber;
+
+        // Get the target period to match dates.
+        $targetperiod = self::get_period_from_id($targetperiodid);
+        if (!$targetperiod) {
+            return [];
+        }
+
+        // Get all sections that are already part of crosssplits.
+        $crosssplitsql = "SELECT DISTINCT(section_id)
+            FROM {block_wdsprefs_crosssplits} cs
+            INNER JOIN {block_wdsprefs_crosssplit_sections} css
+                ON cs.id = css.crosssplit_id
+                AND cs.universal_id = :userid";
+
+        $parms = ['userid' => $uid];
+        $crosssplitsections = $DB->get_records_sql($crosssplitsql, $parms);
+        $excludeids = array_keys($crosssplitsections);
+
+        // Build SQL query.
+        $sql = "SELECT sec.id AS sectionid,
+           p.period_year,
+           p.period_type,
+           p.academic_period_id,
+           c.course_subject_abbreviation,
+           c.course_number,
+           sec.section_number,
+           sec.section_listing_id,
+           COALESCE(t.preferred_firstname, t.firstname) AS firstname,
+           COALESCE(t.preferred_lastname, t.lastname) AS lastname
+           FROM {enrol_wds_periods} p
+               INNER JOIN {enrol_wds_sections} sec
+                   ON sec.academic_period_id = p.academic_period_id
+               INNER JOIN {enrol_wds_courses} c
+                   ON c.course_listing_id = sec.course_listing_id
+               INNER JOIN {enrol_wds_teacher_enroll} tenr
+                   ON tenr.section_listing_id = sec.section_listing_id
+               INNER JOIN {enrol_wds_teachers} t
+                   ON t.universal_id = tenr.universal_id
+           WHERE tenr.universal_id = :userid
+             AND p.start_date = :startdate
+             AND p.end_date = :enddate";
+
+        // Add condition to exclude already crosssplit sections.
+        if (!empty($excludeids)) {
+            list($insql, $inparms) = $DB->get_in_or_equal($excludeids, SQL_PARAMS_NAMED, 'exclude_', false);
+            $sql .= " AND sec.id " . $insql;
+            $parms = array_merge(['userid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date], $inparms);
+        } else {
+            $parms = ['userid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date];
+        }
+
+        $sql .= " GROUP BY sec.id, p.academic_period_id
+            ORDER BY p.start_date ASC, c.course_subject_abbreviation ASC, c.course_number ASC, sec.section_number ASC";
+
+        $records = $DB->get_records_sql($sql, $parms);
+
+        $formatteddata = [];
+
+        foreach ($records as $record) {
+
+           // Build the period name.
+           $periodname = self::get_current_taught_periods($record->academic_period_id);
+           $periodname = reset($periodname);
+
+           // Group by Period -> Course,
+           if (!isset($formatteddata[$periodname])) {
+               $formatteddata[$periodname] = [];
+           }
+
+           $coursekey = "{$record->course_subject_abbreviation} {$record->course_number}";
+
+           if (!isset($formatteddata[$periodname][$coursekey])) {
+               $formatteddata[$periodname][$coursekey] = [];
+           }
+
+           $sectionvalue = "{$record->course_subject_abbreviation} {$record->course_number} {$record->section_number}";
+
+           $formatteddata[$periodname][$coursekey][$record->sectionid] = $sectionvalue;
+        }
+
+        return $formatteddata;
+    }
+
+    /**
+     * Handles the submission of the crossenrollment form.
+     *
+     * @param object $data Form data
+     * @param string $period Period information
+     * @param string $teacher Teacher information
+     * @return array Array of results with shell information and assigned sections
+     */
+    public static function process_crossenroll_form($data, $period, $teacher) {
+        global $USER, $DB;
+
+        // Get the period id.
+        $periodid = $period->id;
+
+        // Build the period name.
+        $periodname = self::get_current_taught_periods($period->academic_period_id);
+        $periodname = reset($periodname);
+
+        // Prepare array to store results.
+        $results = [];
+
+        // Check if we have sections.
+        if (!empty($data->selectedsections)) {
+
+            // It might come as an array or comma separated string depending on form element.
+            $sectionids = $data->selectedsections;
+
+            // Should be array from select multiple.
+            if (!is_array($sectionids)) {
+                return [];
+            }
+
+            // Create the shell name.
+            $shellname = "$periodname for $teacher";
+
+            // Create the crossenrolled shell.
+            $crosssplitid = self::create_crosssplit_shell(
+                $USER->id,
+                $periodid,
+                $sectionids,
+                $shellname,
+                1
+            );
+
+            if ($crosssplitid) {
+
+                // Get info about the sections.
+                $sections = [];
+
+                foreach ($sectionids as $sectionid) {
+
+                    // Build out the sql.
+                    $ssql = "SELECT sec.section_number,
+                            cou.course_subject_abbreviation,
+                            cou.course_number
+                     FROM {enrol_wds_sections} sec
+                     INNER JOIN {enrol_wds_courses} cou
+                         ON cou.course_listing_id = sec.course_listing_id
+                     WHERE sec.id = :sectionid";
+
+                     // Build the parms.
+                     $parms = ['sectionid' => $sectionid];
+
+                     // Get the data.
+                     $section = $DB->get_record_sql($ssql, $parms);
+
+                    if ($section) {
+                        $sections[] = $section->course_subject_abbreviation . ' ' .
+                                  $section->course_number . ' ' .
+                                  $section->section_number;
+                    }
+                }
+
+                // Store in results.
+                $results[$shellname] = [
+                    'crosssplit_id' => $crosssplitid,
+                    'sections' => $sections
+                ];
+            }
+        }
+
+        return $results;
+    }
 }
