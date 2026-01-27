@@ -33,7 +33,7 @@ class crossenroll_sections_form extends moodleform {
 
         // Get the sections data.
         $sectionsbyperiod = $this->_customdata['sectionsbyperiod'] ?? [];
-        
+
         // Target period info (optional display)
         $targetperiodname = $this->_customdata['targetperiodname'] ?? '';
 
@@ -48,7 +48,7 @@ class crossenroll_sections_form extends moodleform {
             get_string('wdsprefs:crossenrollinstructions2', 'block_wdsprefs') .
             '</p></div>'
         );
-        
+
         if ($targetperiodname) {
              $mform->addElement('html',
                 '<p><strong>' . get_string('wdsprefs:targetperiod', 'block_wdsprefs') . ': ' . $targetperiodname . '</strong></p>'
@@ -57,28 +57,28 @@ class crossenroll_sections_form extends moodleform {
 
         // Loop through periods
         foreach ($sectionsbyperiod as $periodname => $courses) {
-            
+
             $mform->addElement('html', '<h4 class="mt-3">' . $periodname . '</h4>');
 
             foreach ($courses as $coursename => $sections) {
-                
+
                 $mform->addElement('html', '<div class="card"><div class="card-body">');
                 $mform->addElement('html', '<h5 class="card-title">' . $coursename . '</h5>');
 
                 foreach ($sections as $sectionid => $sectionname) {
-                     $mform->addElement('advcheckbox', 
-                        'selectedsections['.$sectionid.']', 
-                        null, 
-                        $sectionname, 
-                        null, 
+                     $mform->addElement('advcheckbox',
+                        'selectedsections['.$sectionid.']',
+                        null,
+                        $sectionname,
+                        null,
                         [0, $sectionid]
                     );
                 }
-                
+
                 $mform->addElement('html', '</div></div>');
             }
         }
-        
+
         // Add the action buttons.
         $this->add_action_buttons(true, get_string('submit'));
     }
