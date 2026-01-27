@@ -2364,4 +2364,100 @@ class wdsprefs {
 
         return $results;
     }
+
+    /**
+     * Checks if the user has any periods eligible for cross-enrollment.
+     *
+     * @param object|null $user Unused, uses global $USER.
+     * @return bool True if eligible periods exist.
+     */
+    public static function has_crossenroll_periods($user = null): bool {
+        $periods = self::get_crossenroll_periods();
+        return !empty($periods);
+    }
+
+    /**
+     * Gets periods available for crossenrollment (sharing start/end dates).
+     *
+     * @return array Formatted array of periods.
+     */
+    public static function get_crossenroll_periods(): array {
+        global $USER, $DB;
+
+        // Get the user's idnumber.
+        $uid = $USER->idnumber;
+
+        // Get settings to limit semesters to current ones.
+        $s = workdaystudent::get_settings();
+
+        // Set the semester range for getting future and recent semesters.
+        $fsemrange = isset($s->brange) ? ($s->brange * 86400) : 0;
+
+        // Build the SQL.
+        $sql = "SELECT p.academic_period_id,
+                p.period_type,
+                p.period_year,
+                p.academic_period,
+                p.start_date,
+                p.end_date
+            FROM {enrol_wds_periods} p
+                INNER JOIN {enrol_wds_sections} sec
+                    ON sec.academic_period_id = p.academic_period_id
+                INNER JOIN {enrol_wds_teacher_enroll} tenr
+                    ON tenr.section_listing_id = sec.section_listing_id
+            WHERE tenr.universal_id = :userid
+                AND p.start_date < UNIX_TIMESTAMP() + :fsemrange
+                AND p.end_date > UNIX_TIMESTAMP()
+            GROUP BY p.academic_period_id
+            ORDER BY p.start_date ASC, p.period_type ASC";
+
+        // Use named parameters for security.
+        $parms = [
+            'userid' => $uid,
+            'fsemrange' => $fsemrange
+        ];
+
+        // Get the actual data.
+        $records = $DB->get_records_sql($sql, $parms);
+
+        // Group by dates.
+        $dategroups = [];
+        foreach ($records as $record) {
+            $key = $record->start_date . '|' . $record->end_date;
+            if (!isset($dategroups[$key])) {
+                $dategroups[$key] = [];
+            }
+            $dategroups[$key][] = $record;
+        }
+
+        // Filter groups with < 2 periods.
+        $eligibleperiods = [];
+        foreach ($dategroups as $group) {
+            if (count($group) >= 2) {
+                foreach ($group as $record) {
+                    $eligibleperiods[$record->academic_period_id] = $record;
+                }
+            }
+        }
+
+        // Build the periods array maintaining order.
+        $periods = [];
+        foreach ($records as $record) {
+            if (isset($eligibleperiods[$record->academic_period_id])) {
+                // Determine if this is an online period or not.
+                $online = self::get_period_online($record->academic_period);
+
+                // Get the academic period id.
+                $pid = $record->academic_period_id;
+
+                // Get the period name matching the course designation.
+                $pname = $record->period_year . ' ' . $record->period_type . $online;
+
+                // Add the key/value pair to the array.
+                $periods[$pid] = $pname;
+            }
+        }
+
+        return $periods;
+    }
 }

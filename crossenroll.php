@@ -70,7 +70,7 @@ $PAGE->navbar->add(
 // Output the header.
 echo $OUTPUT->header();
 
-$periods = wdsprefs::get_current_taught_periods();
+$periods = wdsprefs::get_crossenroll_periods();
 
 // Step 1: Target Period Selection
 if ($step == 'period') {
