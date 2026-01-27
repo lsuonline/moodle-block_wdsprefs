@@ -74,20 +74,25 @@ $periods = wdsprefs::get_crossenroll_periods();
 
 // Step 1: Target Period Selection
 if ($step == 'period') {
-    $actionurl = new moodle_url('/blocks/wdsprefs/crossenroll.php', ['step' => 'period']);
-    $form1 = new crossenroll_period_form($actionurl, ['periods' => $periods]);
 
-    if ($form1->is_cancelled()) {
-        redirect(new moodle_url('/'));
-    } else if ($data = $form1->get_data()) {
-        // Store selection data in session for next step.
-        $SESSION->wdsprefs_target_periodid = $data->periodid;
-
-        // Redirect to step 2.
-        redirect(new moodle_url('/blocks/wdsprefs/crossenroll.php',
-            ['step' => 'sections']));
+    if (empty($periods)) {
+        echo $OUTPUT->notification(get_string('wdsprefs:nocrossenrollperiods', 'block_wdsprefs'), 'notifyproblem');
     } else {
-        $form1->display();
+        $actionurl = new moodle_url('/blocks/wdsprefs/crossenroll.php', ['step' => 'period']);
+        $form1 = new crossenroll_period_form($actionurl, ['periods' => $periods]);
+
+        if ($form1->is_cancelled()) {
+            redirect(new moodle_url('/'));
+        } else if ($data = $form1->get_data()) {
+            // Store selection data in session for next step.
+            $SESSION->wdsprefs_target_periodid = $data->periodid;
+
+            // Redirect to step 2.
+            redirect(new moodle_url('/blocks/wdsprefs/crossenroll.php',
+                ['step' => 'sections']));
+        } else {
+            $form1->display();
+        }
     }
 
 // Step 2: Sections Selection

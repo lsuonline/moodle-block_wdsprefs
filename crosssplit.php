@@ -45,9 +45,6 @@ require_login();
 // Get system context for permissions.
 $context = context_system::instance();
 
-// TODO: Uncomment me.
-//require_capability('block/wdsprefs:manage', $context);
-
 $url = new moodle_url('/blocks/wdsprefs/crosssplit.php');
 
 // Set up the page.
@@ -83,48 +80,53 @@ $periods = wdsprefs::get_current_taught_periods();
 
 // Step 1: Period selection - displays the first form to select a source period.
 if ($step == 'period') {
-    $actionurl = new moodle_url('/blocks/wdsprefs/crosssplit.php', ['step' => 'period']);
 
-    // Instantiate the form1.
-    $form1 = new select_period_form($actionurl, ['periods' => $periods]);
-
-    if ($form1->is_cancelled()) {
-        redirect(new moodle_url('/'));
-    } else if ($data = $form1->get_data()) {
-
-        // Get the sections by course.
-        $sectionsbycourse = wdsprefs::get_sections_by_course_for_period($data->periodid);
-
-        // Count them.
-        $seccoursecount = count($sectionsbycourse);
-
-        // Fix for people with one course and multiple sections who want to split.
-        $hasmultipleentries = false;
-        foreach ($sectionsbycourse as $sub) {
-            if (is_array($sub) && count($sub) > 1) {
-                $hasmultipleentries = true;
-                break;
-            }
-        }
-
-        // Check if there are any sections available for crosssplitting.
-        if (empty($sectionsbycourse) || (!$hasmultipleentries && $seccoursecount < 2)) {
-            echo $OUTPUT->notification(
-                get_string('wdsprefs:nosectionsavailable', 'block_wdsprefs'),
-                'notifyinfo');
-            echo $OUTPUT->footer();
-            exit;
-        }
-
-        // Store selection data in session for next step.
-        $SESSION->wdsprefs_periodid = $data->periodid;
-        $SESSION->wdsprefs_sectionsbycourse = $sectionsbycourse;
-
-        // Redirect to step 2.
-        redirect(new moodle_url('/blocks/wdsprefs/crosssplit.php',
-            ['step' => 'course']));
+    if (empty($periods)) {
+        echo $OUTPUT->notification(get_string('wdsprefs:nocrosssplitperiods', 'block_wdsprefs'), 'notifyproblem');
     } else {
-        $form1->display();
+        $actionurl = new moodle_url('/blocks/wdsprefs/crosssplit.php', ['step' => 'period']);
+
+        // Instantiate the form1.
+        $form1 = new select_period_form($actionurl, ['periods' => $periods]);
+
+        if ($form1->is_cancelled()) {
+            redirect(new moodle_url('/'));
+        } else if ($data = $form1->get_data()) {
+
+            // Get the sections by course.
+            $sectionsbycourse = wdsprefs::get_sections_by_course_for_period($data->periodid);
+
+            // Count them.
+            $seccoursecount = count($sectionsbycourse);
+
+            // Fix for people with one course and multiple sections who want to split.
+            $hasmultipleentries = false;
+            foreach ($sectionsbycourse as $sub) {
+                if (is_array($sub) && count($sub) > 1) {
+                    $hasmultipleentries = true;
+                    break;
+                }
+            }
+
+            // Check if there are any sections available for crosssplitting.
+            if (empty($sectionsbycourse) || (!$hasmultipleentries && $seccoursecount < 2)) {
+                echo $OUTPUT->notification(
+                    get_string('wdsprefs:nosectionsavailable', 'block_wdsprefs'),
+                    'notifyinfo');
+                echo $OUTPUT->footer();
+                exit;
+            }
+
+            // Store selection data in session for next step.
+            $SESSION->wdsprefs_periodid = $data->periodid;
+            $SESSION->wdsprefs_sectionsbycourse = $sectionsbycourse;
+
+            // Redirect to step 2.
+            redirect(new moodle_url('/blocks/wdsprefs/crosssplit.php',
+                ['step' => 'course']));
+        } else {
+            $form1->display();
+        }
     }
 
 // Step 2: Courses selection - displays the second form to select the courses to crosssplit.
