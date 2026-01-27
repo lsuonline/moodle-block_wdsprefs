@@ -110,6 +110,11 @@
 #page-blocks-wdsprefs-crossenroll .card {
     border: 1px solid #ccc;
     border-radius: 3px 1em 1em 3px;
+    text-wrap-mode: nowrap;
+    margin: 0 1em 1em 0;
+    display: inline-table;
+    min-width: 31%;
+    max-width: 100%;
 }
 
 #page-blocks-wdsprefs-crossenroll .card:hover {
@@ -122,6 +127,7 @@
 
 #page-blocks-wdsprefs-crossenroll .checkbox {
     padding: 0.5em 0 0 1em;
+    margin: 0 1em 0 0;
 }
 
 #page-blocks-wdsprefs-crossenroll .card-body {

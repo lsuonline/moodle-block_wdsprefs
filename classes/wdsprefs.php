@@ -2236,7 +2236,8 @@ class wdsprefs {
                    ON tenr.section_listing_id = sec.section_listing_id
                INNER JOIN {enrol_wds_teachers} t
                    ON t.universal_id = tenr.universal_id
-           WHERE tenr.universal_id = :userid
+           WHERE sec.delivery_mode IN ('Online','Web-Based')
+             AND tenr.universal_id = :userid
              AND p.start_date = :startdate
              AND p.end_date = :enddate";
 

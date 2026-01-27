@@ -59,6 +59,7 @@ class crossenroll_sections_form extends moodleform {
         foreach ($sectionsbyperiod as $periodname => $courses) {
 
             $mform->addElement('html', '<h4 class="mt-3">' . $periodname . '</h4>');
+            $mform->addElement('html', '<div class="card-row">');
 
             foreach ($courses as $coursename => $sections) {
 
@@ -77,6 +78,7 @@ class crossenroll_sections_form extends moodleform {
 
                 $mform->addElement('html', '</div></div>');
             }
+                $mform->addElement('html', '</div>');
         }
 
         // Add the action buttons.
