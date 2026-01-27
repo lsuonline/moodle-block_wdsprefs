@@ -37,7 +37,6 @@ $string['wdsprefs:success'] = 'Preferences saved successfully!';
 $string['wdsprefs:course'] = 'Course preferences';
 $string['wdsprefs:crossenroll'] = 'Cross Enrollment';
 $string['wdsprefs:crosssplit'] = 'Crosslist & Split';
-$string['wdsprefs:split'] = 'Split courses';
 $string['wdsprefs:schedule'] = 'Course schedule';
 $string['wdsprefs:teamteach'] = 'Team teaching';
 $string['wdsprefs:unwant'] = 'Unwanted sections';
@@ -45,16 +44,11 @@ $string['wdsprefs:user'] = 'User preferences';
 
 $string['help_course_preferences'] = 'Course creation and enrollment preferences.';
 $string['help_unwanted_sections'] = 'Unwanted section enrollments.';
-$string['help_split_courses'] = 'Splitting a multi-section course into multiple course shells.';
 $string['help_cross_listing'] = 'Crosslisting and splitting courses and sections into any combination of course shells.';
 $string['help_cross_enrollment_help'] = 'Combine sections from multiple academic periods into a single course shell. This is useful for combining sections from different terms into one shell.';
-$string['help_team_teaching'] = 'Team teaching assignments.';
-
 $string['help_course_preferences_help'] = 'Set your course creation and enrollment date preferences.';
 $string['help_unwanted_sections_help'] = 'Remove unwanted course sections from your Moodle course shells.';
-$string['help_split_courses_help'] = 'Split courses into multiple course shells with anywhere from one course shell to one section per course shell.';
 $string['help_cross_listing_help'] = 'Flexibly combine or separate course sections into any arrangement of course shells - from combining multiple courses into one shell to splitting individual sections into separate shells or any hybrid combination. Enrollments will be kept up to date and grades can be posted for all sections directly from their assigned shells.';
-$string['help_team_teaching_help'] = 'Invite another professor and their section\'s roster into your course shell. Enrollment will be kept and grade posting permitted from this course shell.';
 
 // WDS Page strings.
 $string['wdsprefs:format'] = 'Course Format';
@@ -109,19 +103,20 @@ $string['wdsprefs:datecreated'] = 'Date Created';
 $string['wdsprefs:actions'] = 'Actions';
 $string['wdsprefs:viewcourse'] = 'View Course';
 $string['wdsprefs:viewsections'] = 'View Sections';
-$string['wdsprefs:existingcrosssplits'] = 'Your Existing Crosslisted and Split Shells';
-$string['wdsprefs:crosssplitsections'] = 'Crosslisted and Split Sections';
+$string['wdsprefs:existingcrosssplits'] = 'Your Existing Crosslisted, Split, and Cross-Enrolled Shells';
+$string['wdsprefs:crosssplitsections'] = 'Crosslisted, Split, and Cross-Enrolled Sections';
 $string['wdsprefs:crosssplitinstructions2'] = '<strong>Crosslisting:</strong> Select the courses to combine, then enter how many shells you need.<br><strong>Splitting:</strong> Choose a course to split into multiple shells, then enter how many shells you need.';
 $string['wdsprefs:crosssplitinstructions3'] = '<ol><li>Click on a shell container to select it (highlighted in blue)</li><li>Select any number of sections from the left and click "Add to Shell" to assign them to the highlighted shell.</li></ol><br>You can select sections from any shell and click "Remove" to return them to the available list.<br>You can create up to {$a->shellword} ({$a->shell}) shell(s) from the {$a->secword} ({$a->sec}) available sections.<br>If there are unused shells, they will not be creaed. Any unassigned sections will be left in the original course shell.';
-$string['wdsprefs:nocrosssplit'] = 'Crosslisted and Split shell not found or you do not have permission to view it.';
-$string['wdsprefs:nosections'] = 'No sections have been assigned to this crosslisted or split shell.';
+$string['wdsprefs:nocrosssplit'] = 'Crosslisted, Split, or Cross-Enrolled shell not found or you do not have permission to view it.';
+$string['wdsprefs:nosections'] = 'No sections have been assigned to this crosslisted, split, or cross-enrolled shell.';
 $string['wdsprefs:status'] = 'Status';
 $string['wdsprefs:sectionstatus_pending'] = 'Pending';
 $string['wdsprefs:sectionstatus_enrolled'] = 'Enrolled';
 $string['wdsprefs:sectionstatus_unenrolled'] = 'Unenrolled';
 $string['wdsprefs:section'] = 'Section';
 $string['wdsprefs:sections'] = 'Sections';
-$string['wdsprefs:nosectionsavailable'] = 'No sections are available for crosslisting or splitting. You need at least two (2) sections to split a course. You need at least one (1) section in two (2) courses to crosslist a group of courses. Alternatively, all your courses may already be part of crosslisted or split courses.';
+$string['wdsprefs:nosectionsavailable'] = 'No sections are available for crosslisting, splitting, or cross-enrolling. You need at least two (2) sections to split a course. You need at least one (1) section in two (2) courses to crosslist or cross-enroll a group of courses. Alternatively, all your courses may already be part of crosslisted, split, or cross-enrolled courses.';
+
 // Blueprint shells related strings.
 $string['wdsprefs:blueprint'] = 'Blueprint Shells';
 $string['wdsprefs:blueprinttitle'] = 'Blueprint Shells';
@@ -143,18 +138,18 @@ $string['wdsprefs:blueprintstatus_created'] = 'Created';
 $string['wdsprefs:blueprintstatus_failed'] = 'Failed';
 
 // Undo crossspliting strings.
-$string['wdsprefs:undo'] = 'Undo Crosslisting & Splitting';
-$string['wdsprefs:undoconfirm'] = 'Are you sure you want to undo this Crosslisting or Splitting? This will reset sections to their original course shells and move enrollments accordingly. This action cannot be undone.';
-$string['wdsprefs:undosuccess'] = 'Crosslisting and Splitting successfully undone. Sections have been reset to their original course shells.';
-$string['wdsprefs:undofailed'] = 'Failed to undo CrossSplitting. Please contact support.';
+$string['wdsprefs:undo'] = 'Undo Crosslisting, Splitting & Cross-Enrollment';
+$string['wdsprefs:undoconfirm'] = 'Are you sure you want to undo this Crosslisting, Splitting, or Cross-Enrollment? This will reset sections to their original course shells and move enrollments accordingly. This action cannot be undone.';
+$string['wdsprefs:undosuccess'] = 'Crosslisting, Splitting, and Cross-Enrollment successfully undone. Sections have been reset to their original course shells.';
+$string['wdsprefs:undofailed'] = 'Failed to undo Crosslisting, Splitting, or Cross-Enrollment. Please contact support.';
 
-// Cross Enrollment strings.
-$string['wdsprefs:crossenrolltitle'] = 'Cross Enrollment';
-$string['wdsprefs:crossenrollheading'] = 'Cross Enrollment';
+// Cross-Enrollment strings.
+$string['wdsprefs:crossenrolltitle'] = 'Cross-Enrollment';
+$string['wdsprefs:crossenrollheading'] = 'Cross-Enrollment';
 $string['wdsprefs:crossenrollinstructions1'] = 'Select the academic period that will serve as the "primary" or "target" period for the new course shell. This determines the course shell\'s name and dates.';
-$string['wdsprefs:crossenrollinstructions2'] = 'Select the sections you wish to combine into a single course shell. You can select sections from multiple academic periods.';
-$string['wdsprefs:crossenrollsuccess'] = 'Cross Enrollment setup successful.';
-$string['wdsprefs:crossenrollfail'] = 'Cross Enrollment Failed';
-$string['wdsprefs:targetperiod'] = 'Target Period';
+$string['wdsprefs:crossenrollinstructions2'] = 'Select the sections you wish to combine into a single course shell. You can select sections from multiple academic periods as long as their dates line up.';
+$string['wdsprefs:crossenrollsuccess'] = 'Cross-Enrollment setup successful.';
+$string['wdsprefs:crossenrollfail'] = 'Cross-Enrollment Failed';
+$string['wdsprefs:targetperiod'] = 'Target-Period';
 $string['wdsprefs:selectsections'] = 'Select Sections';
 $string['wdsprefs:nosectionsselected'] = 'You must select at least one section.';
