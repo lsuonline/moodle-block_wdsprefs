@@ -1801,7 +1801,8 @@ class wdsprefs {
 
         // Use named parameters for security.
         $parms = [
-            'userid' => $uid,
+            'userid' => $USER->id,
+            'uid' => $uid,
             'periodid' => $periodid
         ];
 
@@ -1811,7 +1812,8 @@ class wdsprefs {
             INNER JOIN {block_wdsprefs_crosssplit_sections} css
                 ON cs.id = css.crosssplit_id
                 AND cs.academic_period_id = :periodid
-                AND cs.universal_id = :userid";
+                AND cs.userid = :userid
+                AND cs.universal_id = :uid";
 
         // Get the data.
         $crosssplitsections = $DB->get_records_sql($crosssplitsql, $parms);
@@ -1840,16 +1842,17 @@ class wdsprefs {
                    ON tenr.section_listing_id = sec.section_listing_id
                INNER JOIN {enrol_wds_teachers} t
                    ON t.universal_id = tenr.universal_id
-           WHERE tenr.universal_id = :userid
+           WHERE tenr.universal_id = :uid
+             AND t.userid = :userid
              AND sec.academic_period_id = :periodid";
 
         // Add condition to exclude already crosssplit sections if we have any.
         if (!empty($excludeids)) {
             list($insql, $inparms) = $DB->get_in_or_equal($excludeids, SQL_PARAMS_NAMED, 'exclude_', false);
             $sql .= " AND sec.id " . $insql;
-            $parms = array_merge(['userid' => $uid, 'periodid' => $periodid], $inparms);
+            $parms = array_merge(['uid' => $uid, 'userid' => $USER->id, 'periodid' => $periodid], $inparms);
         } else {
-            $parms = ['userid' => $uid, 'periodid' => $periodid];
+            $parms = ['uid' => $uid, 'userid' => $USER->id, 'periodid' => $periodid];
         }
 
         $sql .= " GROUP BY sec.id
@@ -1861,7 +1864,7 @@ class wdsprefs {
        // Build the formatteddata array.
        $formatteddata = [];
 
-       // Loop through the records to buuild the formatted array.
+       // Loop through the records to build the formatted array.
        foreach ($records as $record) {
 
            // Build the period name.
@@ -2210,9 +2213,10 @@ class wdsprefs {
             FROM {block_wdsprefs_crosssplits} cs
             INNER JOIN {block_wdsprefs_crosssplit_sections} css
                 ON cs.id = css.crosssplit_id
-                AND cs.universal_id = :userid";
+                AND cs.userid = :userid
+                AND cs.universal_id = :uid";
 
-        $parms = ['userid' => $uid];
+        $parms = ['userid' => $USER->id, 'uid' => $uid];
         $crosssplitsections = $DB->get_records_sql($crosssplitsql, $parms);
         $excludeids = array_keys($crosssplitsections);
 
@@ -2237,7 +2241,8 @@ class wdsprefs {
                INNER JOIN {enrol_wds_teachers} t
                    ON t.universal_id = tenr.universal_id
            WHERE sec.delivery_mode IN ('Online','Web-Based')
-             AND tenr.universal_id = :userid
+             AND t.userid = :userid
+             AND tenr.universal_id = :uid
              AND p.start_date = :startdate
              AND p.end_date = :enddate";
 
@@ -2245,9 +2250,9 @@ class wdsprefs {
         if (!empty($excludeids)) {
             list($insql, $inparms) = $DB->get_in_or_equal($excludeids, SQL_PARAMS_NAMED, 'exclude_', false);
             $sql .= " AND sec.id " . $insql;
-            $parms = array_merge(['userid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date], $inparms);
+            $parms = array_merge(['userid' => $USER->id, 'uid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date], $inparms);
         } else {
-            $parms = ['userid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date];
+            $parms = ['userid' => $USER->id, 'uid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date];
         }
 
         $sql .= " GROUP BY sec.id, p.academic_period_id
