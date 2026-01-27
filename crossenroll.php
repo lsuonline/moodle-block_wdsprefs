@@ -72,11 +72,12 @@ echo $OUTPUT->header();
 
 $periods = wdsprefs::get_crossenroll_periods();
 
-// Step 1: Target Period Selection
+// Step 1: Target Period Selection.
 if ($step == 'period') {
 
     if (empty($periods)) {
-        echo $OUTPUT->notification(get_string('wdsprefs:nocrossenrollperiods', 'block_wdsprefs'), 'notifyproblem');
+        echo $OUTPUT->notification(get_string('wdsprefs:nocrossenrollperiods', 'block_wdsprefs'),
+        \core\output\notification::NOTIFY_ERROR);
     } else {
         $actionurl = new moodle_url('/blocks/wdsprefs/crossenroll.php', ['step' => 'period']);
         $form1 = new crossenroll_period_form($actionurl, ['periods' => $periods]);
@@ -84,6 +85,7 @@ if ($step == 'period') {
         if ($form1->is_cancelled()) {
             redirect(new moodle_url('/'));
         } else if ($data = $form1->get_data()) {
+
             // Store selection data in session for next step.
             $SESSION->wdsprefs_target_periodid = $data->periodid;
 
@@ -95,17 +97,17 @@ if ($step == 'period') {
         }
     }
 
-// Step 2: Sections Selection
+// Step 2: Sections Selection.
 } else if ($step == 'sections') {
     $targetperiodid = $SESSION->wdsprefs_target_periodid;
     if (!$targetperiodid) {
          redirect(new moodle_url('/blocks/wdsprefs/crossenroll.php'));
     }
 
-    // Get ALL sections across periods
+    // Get ALL sections across periods.
     $sectionsbyperiod = wdsprefs::get_sections_across_periods($targetperiodid);
 
-    // Get target period name for display
+    // Get target period name for display.
     $targetperiod = wdsprefs::get_period_from_id($targetperiodid);
     $targetperiodname = isset($periods[$targetperiodid]) ? $periods[$targetperiodid] : '';
 
@@ -116,28 +118,32 @@ if ($step == 'period') {
     ]);
 
     if ($form2->is_cancelled()) {
-        // Clear session
+
+        // Clear session.
         unset($SESSION->wdsprefs_target_periodid);
         redirect(new moodle_url('/blocks/wdsprefs/crossenroll.php'));
     } else if ($data = $form2->get_data()) {
 
-        // Filter selected sections
+        // Filter selected sections.
         $selected = [];
         if (!empty($data->selectedsections) && is_array($data->selectedsections)) {
             $selected = array_filter($data->selectedsections);
-            // Re-assign to object property for processing
+
+            // Re-assign to object property for processing.
             $data->selectedsections = array_values($selected);
         }
 
         if (empty($selected)) {
-            echo $OUTPUT->notification(get_string('wdsprefs:nosectionsselected', 'block_wdsprefs'), 'notifyproblem');
+            echo $OUTPUT->notification(get_string('wdsprefs:nosectionsselected', 'block_wdsprefs'),
+            \core\output\notification::NOTIFY_ERROR);
             $form2->display();
         } else {
              $teachername = fullname($USER);
              $results = wdsprefs::process_crossenroll_form($data, $targetperiod, $teachername);
 
              if (!empty($results)) {
-                echo $OUTPUT->notification(get_string('wdsprefs:crossenrollsuccess', 'block_wdsprefs'), 'notify-success');
+                echo $OUTPUT->notification(get_string('wdsprefs:crossenrollsuccess', 'block_wdsprefs'),
+                \core\output\notification::NOTIFY_SUCCESS);
 
                 foreach ($results as $shellname => $shelldata) {
                     echo html_writer::tag('h4', $shellname);
@@ -163,7 +169,8 @@ if ($step == 'period') {
                     ['class' => 'mt-4']
                 );
              } else {
-                 echo $OUTPUT->notification(get_string('wdsprefs:crossenrollfail', 'block_wdsprefs'), 'notifyproblem');
+                 echo $OUTPUT->notification(get_string('wdsprefs:crossenrollfail', 'block_wdsprefs'),
+                 \core\output\notification::NOTIFY_ERROR);
                  $form2->display();
              }
         }
@@ -172,10 +179,10 @@ if ($step == 'period') {
     }
 }
 
-// Display existing cross enrollments (reuses existing logic)
+// Display existing cross enrollments (reuses existing logic).
 if ($step == 'period') {
 
-    // Get existing crosssplited shells for this user
+    // Get existing crosssplited shells for this user.
     $existingcrosssplits = wdsprefs::get_user_crosssplits($USER->id);
 
     if (!empty($existingcrosssplits)) {
@@ -190,7 +197,8 @@ if ($step == 'period') {
         ];
 
         foreach ($existingcrosssplits as $crosssplit) {
-            // Get period info
+
+            // Get period info.
             $period = wdsprefs::get_period_from_id($crosssplit->academic_period_id);
 
             // Build out the period name.
@@ -207,7 +215,7 @@ if ($step == 'period') {
             $row[] = $periodname;
             $row[] = userdate($crosssplit->timecreated);
 
-            // Action buttons
+            // Action buttons.
             $actions = '';
             if ($crosssplit->moodle_course_id) {
                 $courseurl = new moodle_url('/course/view.php', ['id' => $crosssplit->moodle_course_id]);
@@ -217,7 +225,7 @@ if ($step == 'period') {
                     ['class' => 'btn btn-sm btn-primary', 'target' => '_blank']
                 );
 
-                // Add view sections button
+                // Add view sections button.
                 $sectionsurl = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php',
                     ['id' => $crosssplit->id]
                 );

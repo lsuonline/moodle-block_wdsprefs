@@ -94,7 +94,7 @@ $crosssplit = wdsprefs::get_crosssplit_info($id);
 
 // Check if crosssplit exists and belongs to current user.
 if (!$crosssplit || $crosssplit->userid != $USER->id) {
-    echo $OUTPUT->notification(get_string('wdsprefs:nocrosssplit', 'block_wdsprefs'), 'notifyerror');
+    echo $OUTPUT->notification(get_string('wdsprefs:nocrosssplit', 'block_wdsprefs'), \core\output\notification::NOTIFY_ERROR);
     echo $OUTPUT->footer();
     exit;
 }

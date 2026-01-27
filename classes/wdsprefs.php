@@ -666,7 +666,7 @@ class wdsprefs {
 
         // Remove space between year and term.
         $pname = preg_replace('/(\d{4}) /', '$1', $periodname);
-    
+
         // Remove space before (Online) and remove parentheses.
         $pname = str_replace(' (Online)', 'Online', $pname);
 

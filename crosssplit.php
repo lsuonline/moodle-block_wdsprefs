@@ -82,7 +82,8 @@ $periods = wdsprefs::get_current_taught_periods();
 if ($step == 'period') {
 
     if (empty($periods)) {
-        echo $OUTPUT->notification(get_string('wdsprefs:nocrosssplitperiods', 'block_wdsprefs'), 'notifyproblem');
+        echo $OUTPUT->notification(get_string('wdsprefs:nocrosssplitperiods', 'block_wdsprefs'),
+        \core\output\notification::NOTIFY_ERROR);
     } else {
         $actionurl = new moodle_url('/blocks/wdsprefs/crosssplit.php', ['step' => 'period']);
 
@@ -112,7 +113,7 @@ if ($step == 'period') {
             if (empty($sectionsbycourse) || (!$hasmultipleentries && $seccoursecount < 2)) {
                 echo $OUTPUT->notification(
                     get_string('wdsprefs:nosectionsavailable', 'block_wdsprefs'),
-                    'notifyinfo');
+                    \core\output\notification::NOTIFY_INFO);
                 echo $OUTPUT->footer();
                 exit;
             }
@@ -178,7 +179,7 @@ if ($step == 'period') {
         // Verify at least two sections are selected (required for crossspliting).
         if (count($sectiondata) < 1) {
             echo $OUTPUT->notification(get_string('wdsprefs:atleastonesection',
-                'block_wdsprefs'), 'notify-warning');
+                'block_wdsprefs'), \core\output\notification::NOTIFY_WARNING);
             $form2->display();
             echo $OUTPUT->footer();
             exit;
@@ -253,7 +254,7 @@ if ($step == 'period') {
         if (!empty($results)) {
             // Display success message
             echo $OUTPUT->notification(get_string('wdsprefs:crosssplitsuccess',
-                'block_wdsprefs'), 'notify-success');
+                'block_wdsprefs'), \core\output\notification::NOTIFY_SUCCESS);
 
             // Display the results for each shell
             foreach ($results as $shellname => $shelldata) {
@@ -295,7 +296,7 @@ if ($step == 'period') {
         } else {
             // Display error message
             echo $OUTPUT->notification(get_string('wdsprefs:crosssplitfail',
-                'block_wdsprefs'), 'notifyproblem');
+                'block_wdsprefs'), \core\output\notification::NOTIFY_ERROR);
 
             // Display the form again
             $form3->display();
