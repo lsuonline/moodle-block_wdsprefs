@@ -1213,7 +1213,8 @@ class wdsprefs {
         $sql = "SELECT cs.id, cs.crosssplit_id, cs.section_id, cs.status,
                    s.section_number, s.section_listing_id,
                    c.course_subject_abbreviation, c.course_number,
-                   p.period_year, p.period_type, p.academic_period_id
+                   p.period_year, p.period_type, p.academic_period_id,
+                   p.academic_period
             FROM {block_wdsprefs_crosssplit_sections} cs
             INNER JOIN {enrol_wds_sections} s
                 ON s.id = cs.section_id
@@ -1823,6 +1824,7 @@ class wdsprefs {
            p.period_year,
            p.period_type,
            p.academic_period_id,
+           p.academic_period,
            c.course_subject_abbreviation,
            c.course_number,
            sec.section_number,
@@ -2220,6 +2222,7 @@ class wdsprefs {
            p.period_year,
            p.period_type,
            p.academic_period_id,
+           p.academic_period,
            c.course_subject_abbreviation,
            c.course_number,
            sec.section_number,
@@ -2257,9 +2260,11 @@ class wdsprefs {
 
         foreach ($records as $record) {
 
-           // Build the period name.
-           $periodname = self::get_current_taught_periods($record->academic_period_id);
-           $periodname = reset($periodname);
+           // Determine if this is an online period or not.
+           $online = self::get_period_online($record->academic_period);
+
+           // Build the period name matching the course designation.
+           $periodname = $record->period_year . ' ' . $record->period_type . $online;
 
            // Group by Period -> Course,
            if (!isset($formatteddata[$periodname])) {
