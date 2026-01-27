@@ -82,7 +82,7 @@ $periods = wdsprefs::get_current_taught_periods();
 if ($step == 'period') {
 
     if (empty($periods)) {
-        echo $OUTPUT->notification(get_string('wdsprefs:nocrosssplitperiods', 'block_wdsprefs'), \core\output\notification::NOTIFY_ERROR);
+        echo $OUTPUT->notification(get_string('wdsprefs:nocrosssplitperiods', 'block_wdsprefs'), 'notifyproblem');
     } else {
         $actionurl = new moodle_url('/blocks/wdsprefs/crosssplit.php', ['step' => 'period']);
 
@@ -112,7 +112,7 @@ if ($step == 'period') {
             if (empty($sectionsbycourse) || (!$hasmultipleentries && $seccoursecount < 2)) {
                 echo $OUTPUT->notification(
                     get_string('wdsprefs:nosectionsavailable', 'block_wdsprefs'),
-                    \core\output\notification::NOTIFY_INFO);
+                    'notifyinfo');
                 echo $OUTPUT->footer();
                 exit;
             }
@@ -178,7 +178,7 @@ if ($step == 'period') {
         // Verify at least two sections are selected (required for crossspliting).
         if (count($sectiondata) < 1) {
             echo $OUTPUT->notification(get_string('wdsprefs:atleastonesection',
-                'block_wdsprefs'), \core\output\notification::NOTIFY_WARNING);
+                'block_wdsprefs'), 'notify-warning');
             $form2->display();
             echo $OUTPUT->footer();
             exit;
@@ -249,13 +249,13 @@ if ($step == 'period') {
         // Process the crossspliting
         $results = wdsprefs::process_crosssplit_form($data, $period, $teachername, $shellcount);
 
-        // Check if we have results.
+        // Check if we have results
         if (!empty($results)) {
-            // Display success message.
+            // Display success message
             echo $OUTPUT->notification(get_string('wdsprefs:crosssplitsuccess',
-                'block_wdsprefs'), \core\output\notification::NOTIFY_SUCCESS);
+                'block_wdsprefs'), 'notify-success');
 
-            // Display the results for each shell.
+            // Display the results for each shell
             foreach ($results as $shellname => $shelldata) {
                 echo html_writer::tag('h4', $shellname);
 
@@ -264,7 +264,7 @@ if ($step == 'period') {
                 } else {
                     echo html_writer::alist($shelldata['sections']);
 
-                    // Add link to view the created course.
+                    // Add link to view the created course
                     $crosssplitinfo = wdsprefs::get_crosssplit_info($shelldata['crosssplit_id']);
                     if ($crosssplitinfo && $crosssplitinfo->moodle_course_id) {
                         $courseurl = new moodle_url('/course/view.php',
@@ -278,12 +278,12 @@ if ($step == 'period') {
                 }
             }
 
-            // Clear session data now that we're done.
+            // Clear session data now that we're done
             unset($SESSION->wdsprefs_sectiondata);
             unset($SESSION->wdsprefs_shellcount);
             unset($SESSION->wdsprefs_periodid);
 
-            // Add link to view all crosssplits.
+            // Add link to view all crosssplits
             echo html_writer::tag('div',
                 html_writer::link(
                     new moodle_url('/blocks/wdsprefs/crosssplit.php'),
@@ -293,9 +293,9 @@ if ($step == 'period') {
                 ['class' => 'mt-4']
             );
         } else {
-            // Display error message.
+            // Display error message
             echo $OUTPUT->notification(get_string('wdsprefs:crosssplitfail',
-                'block_wdsprefs'), \core\output\notification::NOTIFY_ERROR);
+                'block_wdsprefs'), 'notifyproblem');
 
             // Display the form again
             $form3->display();

@@ -33,76 +33,52 @@ class crossenroll_sections_form extends moodleform {
 
         // Get the sections data.
         $sectionsbyperiod = $this->_customdata['sectionsbyperiod'] ?? [];
-
-        // Target period info (optional display).
+        
+        // Target period info (optional display)
         $targetperiodname = $this->_customdata['targetperiodname'] ?? '';
 
-        // Add header.
+        // Add header
         $mform->addElement('header',
             'wdsprefs:selectsections',
             get_string('wdsprefs:selectsections', 'block_wdsprefs'));
 
-        // Instructions.
+        // Instructions
         $mform->addElement('html',
             '<div class="alert alert-info"><p>' .
             get_string('wdsprefs:crossenrollinstructions2', 'block_wdsprefs') .
             '</p></div>'
         );
-
+        
         if ($targetperiodname) {
              $mform->addElement('html',
                 '<p><strong>' . get_string('wdsprefs:targetperiod', 'block_wdsprefs') . ': ' . $targetperiodname . '</strong></p>'
             );
         }
 
-        // Loop through periods.
+        // Loop through periods
         foreach ($sectionsbyperiod as $periodname => $courses) {
-
-            $html = '';
-
-            // Period Header.
-            $html .= '<h4 class="mt-4 mb-3">' . $periodname . '</h4>';
-
-            // Grid Container.
-            $html .= '<div class="row">';
+            
+            $mform->addElement('html', '<h4 class="mt-3">' . $periodname . '</h4>');
 
             foreach ($courses as $coursename => $sections) {
-
-                // Column.
-                $html .= '<div class="col-md-6 col-lg-4 mb-4">';
-
-                // Card.
-                $html .= '<div class="card h-100 shadow-sm border-0 wdsprefs-course-card">';
-
-                // Card Header.
-                $html .= '<div class="card-header font-weight-bold py-3">';
-                $html .= $coursename;
-                $html .= '</div>';
-
-                // Card Body.
-                $html .= '<div class="card-body">';
+                
+                $mform->addElement('html', '<div class="card mb-2"><div class="card-body pt-2 pb-2">');
+                $mform->addElement('html', '<h5 class="card-title">' . $coursename . '</h5>');
 
                 foreach ($sections as $sectionid => $sectionname) {
-                    $checkboxid = 'section_' . $sectionid;
-                    $html .= '<div class="form-check mb-2">';
-                    $html .= '<input class="form-check-input" type="checkbox" name="selectedsections[' . $sectionid . ']" value="1" id="' . $checkboxid . '">';
-                    $html .= '<label class="form-check-label" for="' . $checkboxid . '">';
-                    $html .= $sectionname;
-                    $html .= '</label>';
-                    $html .= '</div>';
+                     $mform->addElement('advcheckbox', 
+                        'selectedsections['.$sectionid.']', 
+                        null, 
+                        $sectionname, 
+                        null, 
+                        [0, $sectionid]
+                    );
                 }
-
-                $html .= '</div>'; // close card-body
-                $html .= '</div>'; // close card
-                $html .= '</div>'; // close col
+                
+                $mform->addElement('html', '</div></div>');
             }
-
-            $html .= '</div>'; // close row
-
-            // Output the entire block for this period.
-            $mform->addElement('html', $html);
         }
-
+        
         // Add the action buttons.
         $this->add_action_buttons(true, get_string('submit'));
     }

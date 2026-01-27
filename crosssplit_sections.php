@@ -117,36 +117,19 @@ if ($crosssplit->moodle_course_id) {
 // Get sections in this crosssplit.
 $sections = wdsprefs::get_crosssplit_sections($id);
 
-usort($sections, function ($a, $b) {
-    return strcmp($a->academic_period_id, $b->academic_period_id);
-});
-
 if (empty($sections)) {
     echo html_writer::tag('p', get_string('wdsprefs:nosections', 'block_wdsprefs'));
 } else {
     // Create table for sections.
     $table = new html_table();
     $table->head = [
-        get_string('wdsprefs:academicperiod', 'block_wdsprefs'),
-        get_string('wdsprefs:coursename', 'block_wdsprefs'),
+        get_string('wdsprefs:course', 'block_wdsprefs'),
         get_string('wdsprefs:section', 'block_wdsprefs'),
         get_string('wdsprefs:status', 'block_wdsprefs')
     ];
 
     foreach ($sections as $section) {
-
-        $input = $section->academic_period_id;
-
-        $academicperiod = ucwords(
-            str_replace(
-                '_',
-                ' ',
-                preg_replace('/^[^_]+_/', '', $input)
-            )
-        );
-
         $row = [];
-        $row[] = $academicperiod;
         $row[] = $section->course_subject_abbreviation . ' ' . $section->course_number;
         $row[] = $section->section_number;
         $row[] = get_string('wdsprefs:sectionstatus_' . $section->status, 'block_wdsprefs');
