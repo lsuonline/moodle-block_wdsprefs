@@ -97,7 +97,7 @@
 .duallist-shell.active-shell {
     border-color: #1177d1;
     background-color: #ffffff;
-    box-shadow: 0 0 5px rgba(17, 119, 209, 0.3);
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.25);
 }
 
 .duallist-shell select {
@@ -105,6 +105,36 @@
     min-height: 150px;
     border: 1px solid #ccc;
     border-radius: 3px;
+}
+
+#page-blocks-wdsprefs-crossenroll .card {
+    border: 1px solid #ccc;
+    border-radius: 3px 1em 1em 3px;
+}
+
+#page-blocks-wdsprefs-crossenroll .card:hover {
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.25);
+}
+
+#page-blocks-wdsprefs-crossenroll .checkbox label {
+    cursor: grab;
+}
+
+#page-blocks-wdsprefs-crossenroll .checkbox {
+    padding: 0.5em 0 0 1em;
+}
+
+#page-blocks-wdsprefs-crossenroll .card-body {
+    padding: 0;
+    color: #3a1867;
+}
+
+#page-blocks-wdsprefs-crossenroll .card-title {
+    border-radius: 3px 1em 0 0;
+    margin: 0;
+    padding: 1em;
+    color: white;
+    background-color: #3a1867;
 }
 
 /* Responsive adjustments */

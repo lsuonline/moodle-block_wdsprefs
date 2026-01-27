@@ -62,7 +62,7 @@ class crossenroll_sections_form extends moodleform {
 
             foreach ($courses as $coursename => $sections) {
                 
-                $mform->addElement('html', '<div class="card mb-2"><div class="card-body pt-2 pb-2">');
+                $mform->addElement('html', '<div class="card"><div class="card-body">');
                 $mform->addElement('html', '<h5 class="card-title">' . $coursename . '</h5>');
 
                 foreach ($sections as $sectionid => $sectionname) {
