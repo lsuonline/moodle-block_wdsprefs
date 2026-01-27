@@ -475,7 +475,7 @@ class wdsprefs {
             // Check if the crosssplited course can be deleted.
             if ($crosssplitedcourseid) {
                 if (self::can_delete_original_course($crosssplitedcourseid)) {
-                    mtrace("Deleting crosssplited course ID $crosssplitedcourseid after undo operation as it has no students, grades, or custom content.");
+                    mtrace("Deleting crosssplited course ID $crosssplitedcourseid after undo operation as it has no students, grades, or custom content.\n");
                     self::delete_original_course($crosssplitedcourseid);
                 }
             }
@@ -759,7 +759,6 @@ class wdsprefs {
             // Get the category based on subject of first course.
             $cat = self::get_subject_category($courseinfo->course_subject_abbreviation);
 
-            // TODO: Build out this shit in settings.
             $course->category = get_config('block_wdsprefs', 'blueprint_category_forced') ?
                 get_config('block_wdsprefs', 'blueprint_category') :
                 $cat->id;
@@ -1214,7 +1213,7 @@ class wdsprefs {
         $sql = "SELECT cs.id, cs.crosssplit_id, cs.section_id, cs.status,
                    s.section_number, s.section_listing_id,
                    c.course_subject_abbreviation, c.course_number,
-                   p.period_year, p.period_type
+                   p.period_year, p.period_type, p.academic_period_id
             FROM {block_wdsprefs_crosssplit_sections} cs
             INNER JOIN {enrol_wds_sections} s
                 ON s.id = cs.section_id

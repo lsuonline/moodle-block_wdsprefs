@@ -120,3 +120,33 @@
         margin: 10px 0;
     }
 }
+
+/* Crossenroll Section Selection Styling */
+
+/* Override default card styling for this specific form */
+.wdsprefs-course-card {
+    transition: box-shadow 0.2s ease-in-out;
+    border: 1px solid #9d8cb3 !important;
+    border-radius: 0.25em 1em 1em 0.25em;
+}
+
+.wdsprefs-course-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.25) !important;
+}
+
+.wdsprefs-course-card .card-header {
+    border-radius: 0.25em 1em 0 0;
+    color: white;
+    background-color: #461d7c;
+}
+
+.wdsprefs-course-card .form-check-label {
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1.0;
+}
+
+.wdsprefs-course-card .form-check-input {
+    cursor: pointer;
+    margin-top: 0.5rem;
+}
