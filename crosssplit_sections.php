@@ -135,11 +135,15 @@ if (empty($sections)) {
 
     foreach ($sections as $section) {
 
-        // Determine if this is an online period or not.
-        $online = wdsprefs::get_period_online($section->academic_period);
+        $input = $section->academic_period_id;
 
-        // Build the period name matching the course designation.
-        $academicperiod = $section->period_year . ' ' . $section->period_type . $online;
+        $academicperiod = ucwords(
+            str_replace(
+                '_',
+                ' ',
+                preg_replace('/^[^_]+_/', '', $input)
+            )
+        );
 
         $row = [];
         $row[] = $academicperiod;
