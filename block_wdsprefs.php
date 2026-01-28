@@ -175,7 +175,7 @@ class block_wdsprefs extends block_base {
                 $icon = html_writer::tag('i', '',
                     ['class' => 'wds icon fa ' . $item['icon'], 'aria-hidden' => 'true']);
                 $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'wds menu-link']);
-                $listitems .= html_writer::tag('li', $link, ['class' => 'menu-item']);
+                $listitems .= html_writer::tag('li', $link, ['class' => 'wds menu-item']);
             }
         }
 
@@ -185,7 +185,7 @@ class block_wdsprefs extends block_base {
             $icon = html_writer::tag('i', '',
                 ['class' => 'wds icon fa ' . $item['icon'], 'aria-hidden' => 'true']);
             $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'wds menu-link']);
-            $listitems .= html_writer::tag('li', $link, ['class' => 'menu-item']);
+            $listitems .= html_writer::tag('li', $link, ['class' => 'wds menu-item']);
         }
         */
 
