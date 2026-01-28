@@ -2399,6 +2399,18 @@ class wdsprefs {
         // Set the semester range for getting future and recent semesters.
         $fsemrange = isset($s->brange) ? ($s->brange * 86400) : 0;
 
+        // Get all sections that are already part of crosssplits.
+        $crosssplitsql = "SELECT DISTINCT(section_id)
+            FROM {block_wdsprefs_crosssplits} cs
+            INNER JOIN {block_wdsprefs_crosssplit_sections} css
+                ON cs.id = css.crosssplit_id
+                AND cs.userid = :userid
+                AND cs.universal_id = :uid";
+
+        $csparms = ['userid' => $USER->id, 'uid' => $uid];
+        $crosssplitsections = $DB->get_records_sql($crosssplitsql, $csparms);
+        $excludeids = array_keys($crosssplitsections);
+
         // Build the SQL.
         $sql = "SELECT p.academic_period_id,
                 p.period_type,
@@ -2411,17 +2423,26 @@ class wdsprefs {
                     ON sec.academic_period_id = p.academic_period_id
                 INNER JOIN {enrol_wds_teacher_enroll} tenr
                     ON tenr.section_listing_id = sec.section_listing_id
-            WHERE tenr.universal_id = :userid
+            WHERE tenr.universal_id = :uid
+                AND sec.delivery_mode IN ('Online','Web-Based')
                 AND p.start_date < UNIX_TIMESTAMP() + :fsemrange
-                AND p.end_date > UNIX_TIMESTAMP()
-            GROUP BY p.academic_period_id
-            ORDER BY p.start_date ASC, p.period_type ASC";
+                AND p.end_date > UNIX_TIMESTAMP()";
 
         // Use named parameters for security.
         $parms = [
-            'userid' => $uid,
+            'uid' => $uid,
             'fsemrange' => $fsemrange
         ];
+
+        // Add condition to exclude already crosssplit sections.
+        if (!empty($excludeids)) {
+            list($insql, $inparms) = $DB->get_in_or_equal($excludeids, SQL_PARAMS_NAMED, 'exclude_', false);
+            $sql .= " AND sec.id " . $insql;
+            $parms = array_merge($parms, $inparms);
+        }
+
+        $sql .= " GROUP BY p.academic_period_id
+            ORDER BY p.start_date ASC, p.period_type ASC";
 
         // Get the actual data.
         $records = $DB->get_records_sql($sql, $parms);
