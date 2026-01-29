@@ -143,6 +143,14 @@
     background-color: #3a1867;
 }
 
+#page-blocks-wdsprefs-crossenroll .card span.placeholder {
+    display: block;
+    color: #333;
+    font-size: 1rem;
+    padding: 1em 2em 1em 1.5em;
+    margin-left: 1em;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .duallist-container {

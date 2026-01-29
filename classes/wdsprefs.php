@@ -1751,7 +1751,7 @@ class wdsprefs {
             $parms = [
                 'userid' => $uid,
                 'fsemrange' => $fsemrange
-            ]; 
+            ];
         } else {
 
             // Use named parameters for security.
@@ -1759,7 +1759,7 @@ class wdsprefs {
                 'userid' => $uid,
                 'fsemrange' => $fsemrange,
                 'periodid' => $periodid
-            ]; 
+            ];
         }
 
         // Get the actual data.
@@ -1811,7 +1811,7 @@ class wdsprefs {
             FROM {block_wdsprefs_crosssplits} cs
             INNER JOIN {block_wdsprefs_crosssplit_sections} css
                 ON cs.id = css.crosssplit_id
-                AND cs.academic_period_id = :periodid
+               #AND cs.academic_period_id = :periodid
                 AND cs.userid = :userid
                 AND cs.universal_id = :uid";
 
@@ -2209,16 +2209,19 @@ class wdsprefs {
         }
 
         // Get all sections that are already part of crosssplits.
-        $crosssplitsql = "SELECT DISTINCT(section_id)
+        $crosssplitsql = "SELECT section_id, crosssplit_id, moodle_course_id
             FROM {block_wdsprefs_crosssplits} cs
             INNER JOIN {block_wdsprefs_crosssplit_sections} css
                 ON cs.id = css.crosssplit_id
-                AND cs.userid = :userid
+            WHERE cs.userid = :userid
                 AND cs.universal_id = :uid";
 
-        $parms = ['userid' => $USER->id, 'uid' => $uid];
-        $crosssplitsections = $DB->get_records_sql($crosssplitsql, $parms);
-        $excludeids = array_keys($crosssplitsections);
+        $csparms = ['userid' => $USER->id, 'uid' => $uid];
+        $crosssplitsections = $DB->get_records_sql($crosssplitsql, $csparms);
+        $crosssplitmap = [];
+        foreach ($crosssplitsections as $cs) {
+            $crosssplitmap[$cs->section_id] = $cs;
+        }
 
         // Build SQL query.
         $sql = "SELECT sec.id AS sectionid,
@@ -2244,19 +2247,11 @@ class wdsprefs {
              AND t.userid = :userid
              AND tenr.universal_id = :uid
              AND p.start_date = :startdate
-             AND p.end_date = :enddate";
+             AND p.end_date = :enddate
+           GROUP BY sec.id, p.academic_period_id
+           ORDER BY p.start_date ASC, c.course_subject_abbreviation ASC, c.course_number ASC, sec.section_number ASC";
 
-        // Add condition to exclude already crosssplit sections.
-        if (!empty($excludeids)) {
-            list($insql, $inparms) = $DB->get_in_or_equal($excludeids, SQL_PARAMS_NAMED, 'exclude_', false);
-            $sql .= " AND sec.id " . $insql;
-            $parms = array_merge(['userid' => $USER->id, 'uid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date], $inparms);
-        } else {
-            $parms = ['userid' => $USER->id, 'uid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date];
-        }
-
-        $sql .= " GROUP BY sec.id, p.academic_period_id
-            ORDER BY p.start_date ASC, c.course_subject_abbreviation ASC, c.course_number ASC, sec.section_number ASC";
+        $parms = ['userid' => $USER->id, 'uid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date];
 
         $records = $DB->get_records_sql($sql, $parms);
 
@@ -2281,7 +2276,18 @@ class wdsprefs {
 
            $sectionvalue = "{$record->course_subject_abbreviation} {$record->course_number} {$record->section_number}";
 
-           $formatteddata[$periodname][$coursekey][$record->sectionid] = $sectionvalue;
+           $sectiondata = new stdClass();
+           $sectiondata->name = $sectionvalue;
+           $sectiondata->id = $record->sectionid;
+           $sectiondata->crosssplit_id = null;
+           $sectiondata->moodle_course_id = null;
+
+           if (isset($crosssplitmap[$record->sectionid])) {
+               $sectiondata->crosssplit_id = $crosssplitmap[$record->sectionid]->crosssplit_id;
+               $sectiondata->moodle_course_id = $crosssplitmap[$record->sectionid]->moodle_course_id;
+           }
+
+           $formatteddata[$periodname][$coursekey][$record->sectionid] = $sectiondata;
         }
 
         return $formatteddata;
@@ -2399,18 +2405,6 @@ class wdsprefs {
         // Set the semester range for getting future and recent semesters.
         $fsemrange = isset($s->brange) ? ($s->brange * 86400) : 0;
 
-        // Get all sections that are already part of crosssplits.
-        $crosssplitsql = "SELECT DISTINCT(section_id)
-            FROM {block_wdsprefs_crosssplits} cs
-            INNER JOIN {block_wdsprefs_crosssplit_sections} css
-                ON cs.id = css.crosssplit_id
-                AND cs.userid = :userid
-                AND cs.universal_id = :uid";
-
-        $csparms = ['userid' => $USER->id, 'uid' => $uid];
-        $crosssplitsections = $DB->get_records_sql($crosssplitsql, $csparms);
-        $excludeids = array_keys($crosssplitsections);
-
         // Build the SQL.
         $sql = "SELECT p.academic_period_id,
                 p.period_type,
@@ -2426,23 +2420,15 @@ class wdsprefs {
             WHERE tenr.universal_id = :uid
                 AND sec.delivery_mode IN ('Online','Web-Based')
                 AND p.start_date < UNIX_TIMESTAMP() + :fsemrange
-                AND p.end_date > UNIX_TIMESTAMP()";
+                AND p.end_date > UNIX_TIMESTAMP()
+            GROUP BY p.academic_period_id
+            ORDER BY p.start_date ASC, p.period_type ASC";
 
         // Use named parameters for security.
         $parms = [
             'uid' => $uid,
             'fsemrange' => $fsemrange
         ];
-
-        // Add condition to exclude already crosssplit sections.
-        if (!empty($excludeids)) {
-            list($insql, $inparms) = $DB->get_in_or_equal($excludeids, SQL_PARAMS_NAMED, 'exclude_', false);
-            $sql .= " AND sec.id " . $insql;
-            $parms = array_merge($parms, $inparms);
-        }
-
-        $sql .= " GROUP BY p.academic_period_id
-            ORDER BY p.start_date ASC, p.period_type ASC";
 
         // Get the actual data.
         $records = $DB->get_records_sql($sql, $parms);

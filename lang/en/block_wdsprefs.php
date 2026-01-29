@@ -155,3 +155,5 @@ $string['wdsprefs:targetperiod'] = 'Target-Period';
 $string['wdsprefs:selectsections'] = 'Select Sections';
 $string['wdsprefs:nosectionsselected'] = 'You must select at least one section.';
 $string['wdsprefs:nocrossenrollperiods'] = 'No courses are eligible for cross-enrollment. Cross-enrollment requires courses in at least two different academic periods sharing the same start and end dates.';
+$string['wdsprefs:alreadycrosssplit'] = 'This section is cross-split or cross-enrolled, please {$a} to cross-enroll this section.';
+$string['wdsprefs:undoaction'] = 'undo this action';

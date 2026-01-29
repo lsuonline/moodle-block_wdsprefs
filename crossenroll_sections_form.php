@@ -66,14 +66,35 @@ class crossenroll_sections_form extends moodleform {
                 $mform->addElement('html', '<div class="card"><div class="card-body">');
                 $mform->addElement('html', '<h5 class="card-title">' . $coursename . '</h5>');
 
-                foreach ($sections as $sectionid => $sectionname) {
-                     $mform->addElement('advcheckbox',
-                        'selectedsections['.$sectionid.']',
-                        null,
-                        $sectionname,
-                        null,
-                        [0, $sectionid]
-                    );
+                foreach ($sections as $sectionid => $sectiondata) {
+
+                    // Check if it's an object (new format) or just a string (fallback).
+                    if (is_object($sectiondata)) {
+                        $sectionname = $sectiondata->name;
+                        $crosssplitid = $sectiondata->crosssplit_id;
+                    } else {
+                        $sectionname = $sectiondata;
+                        $crosssplitid = null;
+                    }
+
+                    if ($crosssplitid) {
+                         // Build the link to undo the action.
+                         $undourl = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $crosssplitid]);
+                         $undolink = html_writer::link($undourl, get_string('wdsprefs:undoaction', 'block_wdsprefs'));
+
+                         $message = get_string('wdsprefs:alreadycrosssplit', 'block_wdsprefs', $undolink);
+
+                         $mform->addElement('html', html_writer::span($sectionname . ' - ' . $message, 'placeholder'));
+
+                    } else {
+                         $mform->addElement('advcheckbox',
+                            'selectedsections['.$sectionid.']',
+                            null,
+                            $sectionname,
+                            null,
+                            [0, $sectionid]
+                        );
+                    }
                 }
 
                 $mform->addElement('html', '</div></div>');
