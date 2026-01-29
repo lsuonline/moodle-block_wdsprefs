@@ -26,7 +26,7 @@ require_once("$CFG->dirroot/enrol/workdaystudent/classes/workdaystudent.php");
 class wdsprefs {
 
     /**
-     * Checks if a course can be safely deleted after crossspliting.
+     * Checks if a course can be safely deleted after cross-splitting.
      *
      * @param @int $courseid The Moodle course ID to check
      * @return @bool True if the course can be safely deleted
@@ -129,7 +129,7 @@ class wdsprefs {
     }
 
     /**
-     * Undoes a crossspliting operation, reverting sections back to original course shells.
+     * Undoes a cross-splitting operation, reverting sections back to original course shells.
      *
      * @param @int $crosssplitid The crosssplit ID to undo.
      * @return @bool Success or failure.
@@ -1079,7 +1079,7 @@ class wdsprefs {
         foreach ($originalcoursesdata as $originalcourseid => $data) {
             if (self::can_delete_original_course($originalcourseid)) {
                 // Log the deletion
-                mtrace("Deleting original course ID $originalcourseid (idnumber: {$data['idnumber']}) after crossspliting as it has no students, grades, or custom content");
+                mtrace("Deleting original course ID $originalcourseid (idnumber: {$data['idnumber']}) after cross-splitting as it has no students, grades, or custom content");
                 self::delete_original_course($originalcourseid);
             }
         }
@@ -1214,7 +1214,7 @@ class wdsprefs {
         $sql = "SELECT cs.id, cs.crosssplit_id, cs.section_id, cs.status,
                    s.section_number, s.section_listing_id,
                    c.course_subject_abbreviation, c.course_number,
-                   p.period_year, p.period_type
+                   p.period_year, p.period_type, p.academic_period
             FROM {block_wdsprefs_crosssplit_sections} cs
             INNER JOIN {enrol_wds_sections} s
                 ON s.id = cs.section_id
@@ -1312,6 +1312,12 @@ class wdsprefs {
                 );
 
                 if ($crosssplitid) {
+
+                    // Fetch the actual shell name from the DB.
+                    $created_shell = $DB->get_record('block_wdsprefs_crosssplits', ['id' => $crosssplitid], 'shell_name');
+                    if ($created_shell) {
+                        $shellname = $created_shell->shell_name;
+                    }
 
                     // Get info about the sections.
                     $sections = [];
@@ -2352,6 +2358,12 @@ class wdsprefs {
             );
 
             if ($crosssplitid) {
+
+                // Fetch the actual shell name from the DB.
+                $created_shell = $DB->get_record('block_wdsprefs_crosssplits', ['id' => $crosssplitid], 'shell_name');
+                if ($created_shell) {
+                    $shellname = $created_shell->shell_name;
+                }
 
                 // Get info about the sections.
                 $sections = [];

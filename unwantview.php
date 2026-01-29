@@ -130,7 +130,7 @@ class section_preferences_form extends moodleform {
                 // If we have a match to a crosssplit course id.
                 if (isset($csarray[$section->moodle_courseid])) {
 
-                    // Build out a url for the link to undo crosssplitting.
+                    // Build out a url for the link to undo cross-splitting.
                     $clurlid = $csarray[$section->moodle_courseid];
                     $clurlparm = ['id' => $clurlid];
                     $clurl = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', $clurlparm);

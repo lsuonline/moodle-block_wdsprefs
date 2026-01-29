@@ -15,9 +15,9 @@
 // along with Moodle. If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * CrossSpliting interface for combining multiple course sections into shells.
+ * Cross-Splitting interface for combining multiple course sections into shells.
  *
- * This page provides a three-step interface for crossspliting course sections:
+ * This page provides a three-step interface for cross-splitting course sections:
  * 1. Select the semester in which you'd like to crosssplit.
  * 2. Select source courses containing sections to be crosssplited.
  * 3. Assign sections from selected courses into destination course shells.
@@ -109,7 +109,7 @@ if ($step == 'period') {
                 }
             }
 
-            // Check if there are any sections available for crosssplitting.
+            // Check if there are any sections available for cross-splitting.
             if (empty($sectionsbycourse) || (!$hasmultipleentries && $seccoursecount < 2)) {
                 echo $OUTPUT->notification(
                     get_string('wdsprefs:nosectionsavailable', 'block_wdsprefs'),
@@ -176,7 +176,7 @@ if ($step == 'period') {
             }
         }
 
-        // Verify at least two sections are selected (required for crossspliting).
+        // Verify at least two sections are selected (required for cross-splitting).
         if (count($sectiondata) < 1) {
             echo $OUTPUT->notification(get_string('wdsprefs:atleastonesection',
                 'block_wdsprefs'), \core\output\notification::NOTIFY_WARNING);
@@ -247,7 +247,7 @@ if ($step == 'period') {
 
     // Process form submission.
     if (!is_null($data)) {
-        // Process the crossspliting
+        // Process the cross-splitting
         $results = wdsprefs::process_crosssplit_form($data, $period, $teachername, $shellcount);
 
         // Check if we have results
