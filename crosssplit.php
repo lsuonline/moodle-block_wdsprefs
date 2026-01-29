@@ -76,7 +76,7 @@ $PAGE->navbar->add(
 // Output the header.
 echo $OUTPUT->header();
 
-$periods = wdsprefs::get_current_taught_periods();
+$periods = wdsprefs::get_current_taught_periods(null, true);
 
 // Step 1: Period selection - displays the first form to select a source period.
 if ($step == 'period') {

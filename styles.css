@@ -112,9 +112,8 @@
     border-radius: 3px 1em 1em 3px;
     text-wrap-mode: nowrap;
     margin: 0 1em 1em 0;
-    display: inline-table;
-    min-width: 31%;
-    max-width: 100%;
+    display: inline-block;
+    width: 100%;
 }
 
 #page-blocks-wdsprefs-crossenroll .card:hover {
@@ -132,7 +131,7 @@
 
 #page-blocks-wdsprefs-crossenroll .card-body {
     padding: 0;
-    color: #3a1867;
+    color: #461d7c;
 }
 
 #page-blocks-wdsprefs-crossenroll .card-title {
@@ -140,7 +139,7 @@
     margin: 0;
     padding: 1em;
     color: white;
-    background-color: #3a1867;
+    background-color: #461d7c;
 }
 
 #page-blocks-wdsprefs-crossenroll .card span.placeholder {

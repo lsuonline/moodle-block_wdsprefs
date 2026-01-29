@@ -97,6 +97,7 @@ $string['wdsprefs:availableshells'] = 'Shell Containers';
 $string['wdsprefs:selectedsections'] = 'Shell {$a} Sections';
 $string['wdsprefs:selectperiodsheader'] = 'Current / Near-Future Periods';
 $string['wdsprefs:selectperiod'] = 'Select a term/period to use';
+$string['wdsprefs:periodwithcount'] = '{$a->name}&nbsp;&nbsp;&nbsp;&nbsp;&mdash; {$a->count} available sections';
 $string['wdsprefs:crosssplitfail'] = 'CrossSplitting Failed';
 $string['wdsprefs:shellname'] = 'Shell Name';
 $string['wdsprefs:datecreated'] = 'Date Created';
@@ -116,7 +117,7 @@ $string['wdsprefs:sectionstatus_enrolled'] = 'Enrolled';
 $string['wdsprefs:sectionstatus_unenrolled'] = 'Unenrolled';
 $string['wdsprefs:section'] = 'Section';
 $string['wdsprefs:sections'] = 'Sections';
-$string['wdsprefs:nosectionsavailable'] = 'No sections are available for crosslisting, splitting, or cross-enrolling. You need at least two (2) sections to split a course. You need at least one (1) section in two (2) courses to crosslist or cross-enroll a group of courses. Alternatively, all your courses may already be part of crosslisted, split, or cross-enrolled courses.';
+$string['wdsprefs:nosectionsavailable'] = 'Less than two (2) sections are available for crosslisting, splitting, or cross-enrolling. You need at least two (2) sections to split a course. You need at least one (1) section in two (2) courses to crosslist or cross-enroll a group of courses. Alternatively, all your courses may already be part of crosslisted, split, or cross-enrolled courses.';
 
 // Blueprint shells related strings.
 $string['wdsprefs:blueprint'] = 'Blueprint Shells';

@@ -1709,7 +1709,7 @@ class wdsprefs {
      *
      * @return @array Formatted array of periods.
      */
-    public static function get_current_taught_periods($periodid = null): array {
+    public static function get_current_taught_periods($periodid = null, $include_counts = false): array {
         global $USER, $DB;
 
         // Get the user's idnumber.
@@ -1779,6 +1779,20 @@ class wdsprefs {
 
             // Get the period name matching the course designation.
             $pname = $record->period_year . ' ' . $record->period_type . $online;
+
+            if ($include_counts) {
+                // Get sections for this period to count them.
+                $sections = self::get_sections_by_course_for_period($pid);
+                $count = 0;
+                foreach ($sections as $course_sections) {
+                    $count += count($course_sections);
+                }
+
+                $a = new stdClass();
+                $a->name = $pname;
+                $a->count = $count;
+                $pname = get_string('wdsprefs:periodwithcount', 'block_wdsprefs', $a);
+            }
 
             // Add the key/value pair to the array.
             $periods[$pid] = $pname;
@@ -2393,7 +2407,7 @@ class wdsprefs {
      *
      * @return array Formatted array of periods.
      */
-    public static function get_crossenroll_periods(): array {
+    public static function get_crossenroll_periods($include_counts = false): array {
         global $USER, $DB;
 
         // Get the user's idnumber.
@@ -2465,6 +2479,25 @@ class wdsprefs {
 
                 // Get the period name matching the course designation.
                 $pname = $record->period_year . ' ' . $record->period_type . $online;
+
+                if ($include_counts) {
+                    $sections_across = self::get_sections_across_periods($pid);
+                    $count = 0;
+                    foreach ($sections_across as $period_group) {
+                        foreach ($period_group as $course_group) {
+                            foreach ($course_group as $section) {
+                                if (empty($section->crosssplit_id)) {
+                                    $count++;
+                                }
+                            }
+                        }
+                    }
+
+                    $a = new stdClass();
+                    $a->name = $pname;
+                    $a->count = $count;
+                    $pname = get_string('wdsprefs:periodwithcount', 'block_wdsprefs', $a);
+                }
 
                 // Add the key/value pair to the array.
                 $periods[$pid] = $pname;
