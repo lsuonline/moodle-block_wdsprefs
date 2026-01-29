@@ -2474,6 +2474,10 @@ class wdsprefs {
                 // Determine if this is an online period or not.
                 $online = self::get_period_online($record->academic_period);
 
+                if (empty($online)) {
+                    continue;
+                }
+
                 // Get the academic period id.
                 $pid = $record->academic_period_id;
 
