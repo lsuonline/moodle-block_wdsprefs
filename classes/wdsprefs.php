@@ -1277,7 +1277,6 @@ class wdsprefs {
         $periodid = $period->id;
 
         // Build the period name.
-//        $periodname = self::get_current_taught_periods($periodid);
         $periodname = self::get_current_taught_periods($period->academic_period_id);
         $periodname = reset($periodname);
 
@@ -1364,7 +1363,7 @@ class wdsprefs {
      * @param @string $userid The user ID.
      * @return @bool
      */
-    public static function faster_get_instructor_status ($userid):bool {
+    public static function faster_get_instructor_status($userid):bool {
         global $DB;
 
         // Check if they have a teacher record.
@@ -1383,7 +1382,26 @@ class wdsprefs {
      * @param @string $userid The user ID.
      * @return @bool
      */
-    public static function faster_get_student_status ($userid):bool {
+    public static function faster_get_student_status($userid):bool {
+        global $DB;
+
+        // Check if they have a teacher record.
+        $exists = $DB->record_exists(
+            'enrol_wds_students',
+            ['userid' => $userid]
+        );
+
+        // Return that status.
+        return $exists;
+    }
+
+    /**
+     * Am I a student?
+     *
+     * @param @string $userid The user ID.
+     * @return @bool
+     */
+    public static function get_current_student_status($userid):bool {
         global $DB;
 
         // Check if they have a teacher record.
@@ -2628,4 +2646,199 @@ class wdsprefs {
 
         return $periods;
     }
+
+    /**
+     * Title-cases a string while leaving the first word untouched for academic periods in scheduleview.
+     *
+     * @param string $string
+     * @return string
+     */
+    public static function titlecase_except_first(string $period): string {
+
+        // Get rid of the underscores.
+        $string = str_replace('_', ' ', $period);
+
+        // Split on whitespace but keep delimiters.
+        $parts = preg_split('/(\s+)/u', $string, -1, PREG_SPLIT_DELIM_CAPTURE);
+
+        $firstword = true;
+
+        foreach ($parts as &$part) {
+
+            // Skip pure whitespace.
+            if (trim($part) === '') {
+                continue;
+            }
+
+            if ($firstword) {
+
+                // Leave first word exactly as-is.
+                $firstword = false;
+                continue;
+            }
+
+            $part = mb_convert_case($part, MB_CASE_TITLE, 'UTF-8');
+        }
+
+        unset($part);
+
+        $prettyperiod = implode('', $parts);
+
+        return $prettyperiod;
+    }
+
+    /**
+     * Get the list of courses a student / teacher is enrolled in.
+     *
+     * @param @int $userid
+     * @return @array of @objects
+     */
+    public static function get_user_course_schedule(int $userid): array {
+        global $DB;
+
+        $isteacher = self::faster_get_instructor_status($userid);
+
+        // SQL query to fetch schedule details.
+        $ssql = "SELECT sec.id AS uniquer,
+            COALESCE(c.fullname,
+                CONCAT(per.period_year, ' ',
+                    per.period_type, ' ',
+                    cou.course_subject_abbreviation, ' ',
+                    cou.course_number, ' (', sec.class_type, ')'
+                )
+            ) AS course,
+            per.academic_period_id,
+            sec.section_number AS section,
+            IF(sec.controls_grading=0, 'Course not taught in Moodle',
+                IF(sec.idnumber IS NULL, 'Not created yet',
+                    IF(c.visible=0, 'Hidden', c.id)
+                )
+            ) AS moodlecourse,
+            count(secm.start_time) as timecount,
+            COALESCE(
+                CONCAT(
+                    COALESCE(tea.preferred_firstname, tea.firstname),
+                    ' ',
+                    COALESCE(tea.preferred_lastname, tea.lastname)
+                ),
+                'None assigned yet'
+            ) AS instructor,
+            COALESCE(
+                GROUP_CONCAT(secm.short_day ORDER BY secm.day ASC SEPARATOR '<br>'),
+                'Not provided'
+            ) AS days,
+            COALESCE(
+                GROUP_CONCAT(CONCAT(secm.start_time, ' - ', secm.end_time) ORDER BY secm.day ASC SEPARATOR '<br>'),
+                'Not provided'
+            ) AS times,
+            sec.wd_status AS workdaystatus,
+            sec.delivery_mode AS delivery
+            FROM {user} u
+                INNER JOIN {enrol_wds_students} stu
+                    ON stu.userid = u.id
+                INNER JOIN {enrol_wds_student_enroll} stuenr
+                    ON stuenr.universal_id = stu.universal_id
+                INNER JOIN {enrol_wds_sections} sec
+                    ON sec.section_listing_id = stuenr.section_listing_id
+                INNER JOIN {enrol_wds_courses} cou
+                    ON cou.course_listing_id = sec.course_listing_id
+                INNER JOIN {enrol_wds_periods} per
+                    ON per.academic_period_id = sec.academic_period_id
+                LEFT JOIN {enrol_wds_teacher_enroll} tenr
+                    ON sec.section_listing_id = tenr.section_listing_id
+                    AND tenr.role = 'Primary'
+                LEFT JOIN {enrol_wds_teachers} tea
+                    ON tea.universal_id = tenr.universal_id
+                LEFT JOIN {course} c
+                    ON c.idnumber = sec.idnumber
+                    AND sec.idnumber IS NOT NULL
+                    AND c.idnumber != ''
+                LEFT JOIN {enrol_wds_section_meta} secm
+                    ON secm.section_listing_id = sec.section_listing_id
+            WHERE stuenr.status = 'enrolled'
+                AND per.start_date < UNIX_TIMESTAMP() + (60 * 86400)
+                AND per.end_date > UNIX_TIMESTAMP()
+                AND u.id = :userid
+            GROUP BY sec.id, stuenr.id
+            ORDER BY per.start_date ASC,
+                 cou.course_subject_abbreviation ASC,
+                 cou.course_number ASC,
+                 sec.section_number ASC,
+                 secm.start_time ASC";
+
+        $tsql = "SELECT sec.id AS uniquer,
+                COALESCE(c.fullname,
+                    CONCAT(per.period_year, ' ',
+                        per.period_type, ' ',
+                        cou.course_subject_abbreviation, ' ',
+                        cou.course_number, ' (', sec.class_type, ')'
+                    )
+                ) AS course,
+                per.academic_period_id,
+                sec.section_number AS section,
+                IF(sec.controls_grading=0, 'Course not taught in Moodle',
+                    IF(sec.idnumber IS NULL, 'Not created yet',
+                        IF(c.visible=0, 'Hidden', c.id)
+                    )
+                ) AS moodlecourse,
+                count(secm.start_time) as timecount,
+                COALESCE(
+                    CONCAT(
+                        COALESCE(tea.preferred_firstname, tea.firstname),
+                        ' ',
+                        COALESCE(tea.preferred_lastname, tea.lastname)
+                    ),
+                    'None assigned yet'
+                ) AS instructor,
+                COALESCE(
+                    GROUP_CONCAT(secm.short_day ORDER BY secm.day ASC SEPARATOR '<br>'),
+                    'Not provided'
+                ) AS days,
+                COALESCE(
+                    GROUP_CONCAT(CONCAT(secm.start_time, ' - ', secm.end_time) ORDER BY secm.day ASC SEPARATOR '<br>'),
+                    'Not provided'
+                ) AS times,
+                sec.wd_status AS workdaystatus,
+                sec.delivery_mode AS delivery
+                FROM {user} u
+                    INNER JOIN {enrol_wds_teachers} tea
+                                ON tea.userid = u.id
+                    INNER JOIN {enrol_wds_teacher_enroll} tenr
+                                ON tenr.universal_id = tea.universal_id
+                        AND tenr.role = 'Primary'
+                    INNER JOIN {enrol_wds_sections} sec
+                                ON sec.section_listing_id = tenr.section_listing_id
+                    INNER JOIN {enrol_wds_periods} per
+                                ON per.academic_period_id = sec.academic_period_id
+                    INNER JOIN {enrol_wds_courses} cou
+                        ON cou.course_listing_id = sec.course_listing_id
+                    LEFT JOIN {course} c
+                        ON c.idnumber = sec.idnumber
+                        AND sec.idnumber IS NOT NULL
+                        AND c.idnumber != ''
+                    LEFT JOIN {enrol_wds_section_meta} secm
+                        ON secm.section_listing_id = sec.section_listing_id
+                WHERE tenr.status = 'enrolled'
+                    AND per.start_date < UNIX_TIMESTAMP() + (60 * 86400)
+                    AND per.end_date > UNIX_TIMESTAMP()
+                    AND u.id = 156478
+                GROUP BY sec.id, tenr.id
+                ORDER BY per.start_date ASC,
+                     cou.course_subject_abbreviation ASC,
+                     cou.course_number ASC,
+                     sec.section_number ASC,
+                     secm.start_time ASC";
+
+        // Some parms.
+        $params = ['userid' => $userid];
+
+        // Use the correct SQL.
+        $sql = $isteacher ? $tsql : $ssql;
+
+        // Do the nasty.
+        $records = $DB->get_records_sql($sql, $params);
+
+        return $records;
+    }
+
 }
