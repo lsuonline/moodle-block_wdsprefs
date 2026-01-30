@@ -44,6 +44,7 @@ class block_wdsprefs extends block_base {
 
             // Is the user a student?
             $student = wdsprefs::faster_get_student_status($userid);
+
         } else {
 
             // We are a liars, retun nothing.
@@ -66,18 +67,8 @@ class block_wdsprefs extends block_base {
         // Build this content object out.
         $this->content = new stdClass();
 
-        // Build out the list of items for everyone.
+        // Build out the list of items for both roles.
         $genericitems = [
-            [
-                'text' => get_string('wdsprefs:user', 'block_wdsprefs'),
-                'url' => new moodle_url('/blocks/wdsprefs/userview.php'),
-                'icontype' => 'fontawesome',
-                'icon' => 'fa-user'
-            ],
-        ];
-
-        // Build out student items.
-        $studentitems = [
             [
                 'text' => get_string('wdsprefs:schedule', 'block_wdsprefs'),
                 'url' => new moodle_url('/blocks/wdsprefs/scheduleview.php'),
@@ -87,8 +78,7 @@ class block_wdsprefs extends block_base {
             ],
         ];
 
-
-        // Build out the list of items for faculty.
+        // Build out the list of items for just faculty.
         if ($crosssplitable) {
             $facultyitems = [
                 [
@@ -175,18 +165,6 @@ class block_wdsprefs extends block_base {
             }
         }
 
-        // If we're either an instructor or a student.
-        if ($student) {
-            // Loop through all the student items.
-            foreach ($studentitems as $item) {
-                $icon = html_writer::tag('i', '',
-                    ['class' => 'wds icon fa ' . $item['icon'], 'aria-hidden' => 'true']);
-                $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'wds menu-link']);
-                $listitems .= html_writer::tag('li', $link, ['class' => 'wds menu-item']);
-            }
-        }
-
-        /*
         // Append these to the end possibru.
         foreach ($genericitems as $item) {
             $icon = html_writer::tag('i', '',
@@ -194,7 +172,6 @@ class block_wdsprefs extends block_base {
             $link = html_writer::link($item['url'], $icon . $item['text'], ['class' => 'wds menu-link']);
             $listitems .= html_writer::tag('li', $link, ['class' => 'wds menu-item']);
         }
-        */
 
         // Build out the unordered list.
         $this->content->text = html_writer::tag('ul', $listitems, ['class' => 'wds menu-list']);

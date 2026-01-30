@@ -40,9 +40,8 @@ $PAGE->set_context($context);
 // Build the url.
 $PAGE->set_url(new moodle_url('/blocks/wdsprefs/scheduleview.php'));
 
-// Set title and heading.
+// Set title (generic).
 $PAGE->set_title(get_string('wdsprefs:scheduleview', 'block_wdsprefs'));
-$PAGE->set_heading(get_string('wdsprefs:courseschedule', 'block_wdsprefs'));
 
 // Get current user's ID for later.
 $userid = $USER->id;
@@ -50,20 +49,40 @@ $userid = $USER->id;
 // Get the user's schedule.
 $records = wdsprefs::get_user_course_schedule($userid);
 
+// Separate records.
+$studentrecords = [];
+$teacherrecords = [];
+
+foreach ($records as $rec) {
+    if (isset($rec->role) && $rec->role === 'teacher') {
+        $teacherrecords[] = $rec;
+    } else {
+        $studentrecords[] = $rec;
+    }
+}
+
+$hasstudent = !empty($studentrecords);
+$hasteacher = !empty($teacherrecords);
+
+// Set heading based on roles.
+if ($hasstudent && !$hasteacher) {
+    $PAGE->set_heading(get_string('wdsprefs:studentschedule', 'block_wdsprefs'));
+} elseif (!$hasstudent && $hasteacher) {
+    $PAGE->set_heading(get_string('wdsprefs:teachingschedule', 'block_wdsprefs'));
+} else {
+    $PAGE->set_heading(get_string('wdsprefs:courseschedule', 'block_wdsprefs'));
+}
+
 // Output page header.
 echo $OUTPUT->header();
 
-// Make sure something is here.
-if (empty($records)) {
-    echo $OUTPUT->notification(get_string('wdsprefs:nocourses', 'block_wdsprefs'));
-
-// We have a schedule. group and deal with it.
-} else {
+// Helper closure to render schedule tables.
+$render_schedule = function($schedule_records) {
     // Group records by academic_period_id.
     $grouped = [];
 
     // loop through records and group them.
-    foreach ($records as $rec) {
+    foreach ($schedule_records as $rec) {
         $grouped[$rec->academic_period_id][] = $rec;
     }
 
@@ -81,6 +100,7 @@ if (empty($records)) {
         $table->attributes['class'] = 'generaltable';
         $table->head = [
             get_string('wdsprefs:courseheading','block_wdsprefs'),
+            get_string('wdsprefs:coursenoheading','block_wdsprefs'),
             get_string('wdsprefs:sectionheading','block_wdsprefs'),
             get_string('wdsprefs:statusheading','block_wdsprefs'),
             get_string('wdsprefs:instructorheading','block_wdsprefs'),
@@ -93,10 +113,10 @@ if (empty($records)) {
         $dayorder = ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'];
 
         // Loop through the records to build the table data.
-        foreach ($periodrecords as $records) {
+        foreach ($periodrecords as $record) {
 
             // We'll use this in case we don't have a course id.
-            $courselink = $records->moodlecourse;
+            $courselink = $record->moodlecourse;
 
             // Simple way to check if we have a course id.
             if (is_numeric($courselink)) {
@@ -112,10 +132,10 @@ if (empty($records)) {
             }
 
             // Convert days to array.
-            $daysarray = explode('<br>', $records->days);
+            $daysarray = explode('<br>', $record->days);
 
             // Convert times to array.
-            $timesarray = explode('<br>', $records->times);
+            $timesarray = explode('<br>', $record->times);
 
             // Sort the days based on the correct order with a fancy anonymous function.
             usort($daysarray, function($a, $b) use ($dayorder) {
@@ -131,28 +151,52 @@ if (empty($records)) {
             } else {
 
                 // Otherwise, use the original values (one time per day).
-                $timesdisplay = format_text($records->times, FORMAT_HTML);
-                $daysdisplay = format_text($records->days, FORMAT_HTML);
+                $timesdisplay = format_text($record->times, FORMAT_HTML);
+                $daysdisplay = format_text($record->days, FORMAT_HTML);
             }
 
             // Build the table.
             $table->data[] = [
-                s($records->course),
-                s($records->section),
+                s($record->course),
+                s($record->courseno),
+                s($record->section),
                 $courselink,
-                s($records->instructor),
+                s($record->instructor),
 
                 // Show the cleaned-up days.
                 $daysdisplay,
 
                 // Show the cleaned-up times.
                 $timesdisplay,
-                s($records->delivery),
+                s($record->delivery),
             ];
         }
 
         // Output the table.
         echo html_writer::table($table);
+    }
+};
+
+// Make sure something is here.
+if (empty($records)) {
+    echo $OUTPUT->notification(get_string('wdsprefs:nocourses', 'block_wdsprefs'));
+} else {
+    // If we have student records.
+    if ($hasstudent) {
+        // If we also have teacher records, show a header.
+        if ($hasteacher) {
+            echo html_writer::tag('h2', get_string('wdsprefs:studentschedule', 'block_wdsprefs'));
+        }
+        $render_schedule($studentrecords);
+    }
+
+    // If we have teacher records.
+    if ($hasteacher) {
+        // If we also have student records, show a header.
+        if ($hasstudent) {
+            echo html_writer::tag('h2', get_string('wdsprefs:teachingschedule', 'block_wdsprefs'));
+        }
+        $render_schedule($teacherrecords);
     }
 }
 

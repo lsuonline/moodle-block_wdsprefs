@@ -2696,10 +2696,11 @@ class wdsprefs {
     public static function get_user_course_schedule(int $userid): array {
         global $DB;
 
-        $isteacher = self::faster_get_instructor_status($userid);
-
         // SQL query to fetch schedule details.
-        $ssql = "SELECT sec.id AS uniquer,
+        $ssql = "SELECT CONCAT('s', sec.id) AS uniquer,
+            'student' AS role,
+            CONCAT(cou.course_subject_abbreviation, ' ',
+                    cou.course_number) AS courseno,
             COALESCE(c.fullname,
                 CONCAT(per.period_year, ' ',
                     per.period_type, ' ',
@@ -2766,7 +2767,10 @@ class wdsprefs {
                  sec.section_number ASC,
                  secm.start_time ASC";
 
-        $tsql = "SELECT sec.id AS uniquer,
+        $tsql = "SELECT CONCAT('t', sec.id) AS uniquer,
+                'teacher' AS role,
+            CONCAT(cou.course_subject_abbreviation, ' ',
+                    cou.course_number) AS courseno,
                 COALESCE(c.fullname,
                     CONCAT(per.period_year, ' ',
                         per.period_type, ' ',
@@ -2778,7 +2782,7 @@ class wdsprefs {
                 sec.section_number AS section,
                 IF(sec.controls_grading=0, 'Course not taught in Moodle',
                     IF(sec.idnumber IS NULL, 'Not created yet',
-                        IF(c.visible=0, 'Hidden', c.id)
+                        c.id
                     )
                 ) AS moodlecourse,
                 count(secm.start_time) as timecount,
@@ -2832,11 +2836,22 @@ class wdsprefs {
         // Some parms.
         $params = ['userid' => $userid];
 
-        // Use the correct SQL.
-        $sql = $isteacher ? $tsql : $ssql;
+        // Prepare arrays.
+        $studentrecords = [];
+        $teacherrecords = [];
 
-        // Do the nasty.
-        $records = $DB->get_records_sql($sql, $params);
+        // Check student status.
+        if (self::faster_get_student_status($userid)) {
+            $studentrecords = $DB->get_records_sql($ssql, $params);
+        }
+
+        // Check teacher status.
+        if (self::faster_get_instructor_status($userid)) {
+            $teacherrecords = $DB->get_records_sql($tsql, $params);
+        }
+
+        // Merge the records like a heathen.
+        $records = array_merge($studentrecords, $teacherrecords);
 
         return $records;
     }
