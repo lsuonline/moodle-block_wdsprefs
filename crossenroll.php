@@ -79,21 +79,28 @@ if ($step == 'period') {
         echo $OUTPUT->notification(get_string('wdsprefs:nocrossenrollperiods', 'block_wdsprefs'),
         \core\output\notification::NOTIFY_ERROR);
     } else {
-        $actionurl = new moodle_url('/blocks/wdsprefs/crossenroll.php', ['step' => 'period']);
-        $form1 = new crossenroll_period_form($actionurl, ['periods' => $periods]);
 
-        if ($form1->is_cancelled()) {
-            redirect(new moodle_url('/'));
-        } else if ($data = $form1->get_data()) {
-
-            // Store selection data in session for next step.
-            $SESSION->wdsprefs_target_periodid = $data->periodid;
-
-            // Redirect to step 2.
-            redirect(new moodle_url('/blocks/wdsprefs/crossenroll.php',
-                ['step' => 'sections']));
+        // Check eligibility.
+        if (!wdsprefs::check_crossenroll_eligibility($USER->id)) {
+             echo $OUTPUT->notification(get_string('wdsprefs:notenoughsectionsforcrossenroll', 'block_wdsprefs'),
+             \core\output\notification::NOTIFY_ERROR);
         } else {
-            $form1->display();
+            $actionurl = new moodle_url('/blocks/wdsprefs/crossenroll.php', ['step' => 'period']);
+            $form1 = new crossenroll_period_form($actionurl, ['periods' => $periods]);
+
+            if ($form1->is_cancelled()) {
+                redirect(new moodle_url('/'));
+            } else if ($data = $form1->get_data()) {
+
+                // Store selection data in session for next step.
+                $SESSION->wdsprefs_target_periodid = $data->periodid;
+
+                // Redirect to step 2.
+                redirect(new moodle_url('/blocks/wdsprefs/crossenroll.php',
+                    ['step' => 'sections']));
+            } else {
+                $form1->display();
+            }
         }
     }
 
@@ -135,6 +142,16 @@ if ($step == 'period') {
 
         if (empty($selected)) {
             echo $OUTPUT->notification(get_string('wdsprefs:nosectionsselected', 'block_wdsprefs'),
+            \core\output\notification::NOTIFY_ERROR);
+            $form2->display();
+        } else if (!wdsprefs::validate_crossenroll_selection($selected)) {
+
+            $cllink = html_writer::link(
+                new moodle_url('/blocks/wdsprefs/crosssplit.php'),
+                get_string('wdsprefs:crosssplit', 'block_wdsprefs')
+            );
+
+            echo $OUTPUT->notification(get_string('wdsprefs:mustselectfromtwo', 'block_wdsprefs', $cllink),
             \core\output\notification::NOTIFY_ERROR);
             $form2->display();
         } else {

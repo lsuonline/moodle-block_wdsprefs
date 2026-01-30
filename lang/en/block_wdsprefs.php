@@ -159,3 +159,5 @@ $string['wdsprefs:nosectionsselected'] = 'You must select at least one section.'
 $string['wdsprefs:nocrossenrollperiods'] = 'No courses are eligible for cross-enrollment. Cross-enrollment requires courses in at least two different academic periods sharing the same start and end dates.';
 $string['wdsprefs:alreadycrosssplit'] = 'This section is cross-split or cross-enrolled, please {$a} to cross-enroll this section.';
 $string['wdsprefs:undoaction'] = 'undo this action';
+$string['wdsprefs:notenoughsectionsforcrossenroll'] = 'You must have at least two sections across multiple academic periods to cross-enroll.';
+$string['wdsprefs:mustselectfromtwo'] = 'You must select at least one section from at least two different academic periods to cross-enroll.<br>If you are trying to crosslist courses within the same academic period, please use the {$a} tool.';

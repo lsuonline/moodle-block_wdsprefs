@@ -1359,6 +1359,44 @@ class wdsprefs {
     }
 
     /**
+     * Am I an instructor?
+     *
+     * @param @string $userid The user ID.
+     * @return @bool
+     */
+    public static function faster_get_instructor_status ($userid):bool {
+        global $DB;
+
+        // Check if they have a teacher record.
+        $exists = $DB->record_exists(
+            'enrol_wds_teachers',
+            ['userid' => $userid]
+        );
+
+        // Return that status.
+        return $exists;
+    }
+
+    /**
+     * Am I a student?
+     *
+     * @param @string $userid The user ID.
+     * @return @bool
+     */
+    public static function faster_get_student_status ($userid):bool {
+        global $DB;
+
+        // Check if they have a teacher record.
+        $exists = $DB->record_exists(
+            'enrol_wds_students',
+            ['userid' => $userid]
+        );
+
+        // Return that status.
+        return $exists;
+    }
+
+    /**
      * Gets courses taught by the instructor.
      *
      * @param @string $userid The user ID.
@@ -2401,6 +2439,74 @@ class wdsprefs {
         }
 
         return $results;
+    }
+
+    /*
+     * Checks if the user is eligible for cross-enrollment (has available sections in >= 2 periods).
+     *
+     * @param int $userid The user ID.
+     * @return bool True if eligible.
+     */
+    public static function check_crossenroll_eligibility($userid): bool {
+        // Get cross-enroll eligible periods.
+        $periods = self::get_crossenroll_periods();
+        if (empty($periods)) {
+            return false;
+        }
+
+        $periods_with_sections = 0;
+
+        foreach ($periods as $periodid => $periodname) {
+
+            // Let's use get_sections_across_periods with one of the periods.
+            $sections_across = self::get_sections_across_periods($periodid);
+
+            // Count periods that have at least one available section.
+            $available_periods_count = 0;
+            foreach ($sections_across as $pname => $courses) {
+                $has_available_section = false;
+                foreach ($courses as $cname => $sections) {
+                    foreach ($sections as $section) {
+                         // Check if section is NOT cross-split/enrolled.
+                         if (empty($section->crosssplit_id)) {
+                             $has_available_section = true;
+                             break 2; // Break out of sections and courses loops
+                         }
+                    }
+                }
+                if ($has_available_section) {
+                    $available_periods_count++;
+                }
+            }
+
+            if ($available_periods_count >= 2) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Validates that selected sections span at least two different academic periods.
+     *
+     * @param array $sectionids Array of selected section IDs.
+     * @return bool True if valid.
+     */
+    public static function validate_crossenroll_selection($sectionids): bool {
+        global $DB;
+
+        if (empty($sectionids) || !is_array($sectionids)) {
+            return false;
+        }
+
+        // Get academic periods for these sections.
+        list($insql, $params) = $DB->get_in_or_equal($sectionids);
+        $sql = "SELECT DISTINCT academic_period_id FROM {enrol_wds_sections} WHERE id $insql";
+
+        $periods = $DB->get_records_sql($sql, $params);
+
+        return count($periods) >= 2;
     }
 
     /**

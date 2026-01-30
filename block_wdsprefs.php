@@ -34,11 +34,21 @@ class block_wdsprefs extends block_base {
 
         require_once($CFG->dirroot . '/blocks/wdsprefs/classes/wdsprefs.php');
 
-        // Is the user an instructor?
-        $instructor = wdsprefs::get_instructor($USER);
+        // Ensure $USER is not null before accessing properties.
+        $userid = isset($USER->id) ? $USER->id : 0;
 
-        // Is the user a student?
-        $student = wdsprefs::get_student($USER);
+        if ($userid > 0) {
+
+            // Is the user an instructor?
+            $instructor = wdsprefs::faster_get_instructor_status($userid);
+
+            // Is the user a student?
+            $student = wdsprefs::faster_get_student_status($userid);
+        } else {
+
+            // We are a liars, retun nothing.
+            return $this->content;
+        }
 
         // Is this a crosssplittable system?
         $crosssplitable = wdsprefs::get_crosssplitable();
@@ -55,9 +65,6 @@ class block_wdsprefs extends block_base {
 
         // Build this content object out.
         $this->content = new stdClass();
-
-        // Ensure $USER is not null before accessing properties.
-        $userid = isset($USER->id) ? $USER->id : 0;
 
         // Build out the list of items for everyone.
         $genericitems = [
