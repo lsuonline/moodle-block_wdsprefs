@@ -107,7 +107,7 @@ $sql = "SELECT
         AND per.end_date > UNIX_TIMESTAMP()
         AND u.id = :userid
     GROUP BY sec.id, stuenr.id
-    ORDER BY per.start_date DESC,
+    ORDER BY per.start_date ASC,
          cou.course_subject_abbreviation ASC,
          cou.course_number ASC,
          sec.section_number ASC,
