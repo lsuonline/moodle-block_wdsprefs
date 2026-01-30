@@ -2821,7 +2821,7 @@ class wdsprefs {
                 WHERE tenr.status = 'enrolled'
                     AND per.start_date < UNIX_TIMESTAMP() + (60 * 86400)
                     AND per.end_date > UNIX_TIMESTAMP()
-                    AND u.id = 156478
+                    AND u.id = :userid
                 GROUP BY sec.id, tenr.id
                 ORDER BY per.start_date ASC,
                      cou.course_subject_abbreviation ASC,
