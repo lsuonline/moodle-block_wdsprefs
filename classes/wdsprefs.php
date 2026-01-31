@@ -1299,8 +1299,11 @@ class wdsprefs {
                     continue;
                 }
 
-                // Create the shell name.
-                $shellname = "$periodname (Shell $i) for $teacher";
+                // Create the shell name (use custom tag from form if provided).
+                $shellnamefield = "shell_{$i}_tag";
+                $customname = !empty($data->$shellnamefield) ? trim($data->$shellnamefield) : '';
+                $shelllabel = '(' . ($customname !== '' ? $customname : "Shell $i") . ')';
+                $shellname = "$periodname $teacher $shelllabel";
 
                 // Create the crosssplited shell.
                 $crosssplitid = self::create_crosssplit_shell(
