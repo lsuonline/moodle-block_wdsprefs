@@ -102,9 +102,11 @@
 
 .duallist-shell select {
     width: 100%;
-    min-height: 150px;
+    min-height: 2em;
     border: 1px solid #ccc;
     border-radius: 3px;
+    /* Calc height based on how many options are in the select */
+    height: calc(2em * (var(--option-count) + 1));
 }
 
 /* Shell tag input above preview string on assign step */

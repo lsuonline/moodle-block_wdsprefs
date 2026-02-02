@@ -101,6 +101,7 @@ $string['wdsprefs:selectperiod'] = 'Select a term/period to use';
 $string['wdsprefs:periodwithcount'] = '{$a->name} &mdash; {$a->count} available sections';
 $string['wdsprefs:crosssplitfail'] = 'Cross-Splitting Failed';
 $string['wdsprefs:shellname'] = 'Shell Name';
+$string['wdsprefs:shelltaginvalid'] = 'Shell tag may only contain letters, numbers, dashes, underscores and spaces.';
 $string['wdsprefs:datecreated'] = 'Date Created';
 $string['wdsprefs:actions'] = 'Actions';
 $string['wdsprefs:viewcourse'] = 'View Course';

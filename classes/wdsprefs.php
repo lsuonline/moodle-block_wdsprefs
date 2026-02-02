@@ -1302,6 +1302,11 @@ class wdsprefs {
                 // Create the shell name (use custom tag from form if provided).
                 $shellnamefield = "shell_{$i}_tag";
                 $customname = !empty($data->$shellnamefield) ? trim($data->$shellnamefield) : '';
+                if ($customname !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $customname)) {
+                    throw new \core\exception\invalid_parameter_exception(
+                        get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs')
+                    );
+                }
                 $shelllabel = '(' . ($customname !== '' ? $customname : "Shell $i") . ')';
                 $shellname = "$periodname $teacher $shelllabel";
 
