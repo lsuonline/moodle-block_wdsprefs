@@ -547,7 +547,7 @@ class wdsprefs {
      * @param @string $shellname Name for the crosssplited shell.
      * @return @int | @bool The new crosssplit_id if successful, false on failure.
      */
-    public static function create_crosssplit_shell($userid, $periodid, $sectionids, $shellname, $shellcount) {
+    public static function create_crosssplit_shell($userid, $periodid, $sectionids, $shellname, $shellcount, $shellindex = null) {
         global $DB, $CFG;
 
         // Require workdaystudent for course creation functionality.
@@ -571,10 +571,18 @@ class wdsprefs {
         // Get period info.
         $period = self::get_period_from_periodid($periodid);
 
-        // Extract shell number from shell name.
+        // Extract shell number from shell name (for idnumber), or use shellindex when provided.
         $shellnum = 1;
         if (preg_match('/Shell (\d+)/', $shellname, $matches)) {
             $shellnum = $matches[1];
+        } elseif ($shellindex !== null) {
+            $shellnum = $shellindex;
+        }
+
+        // Extract custom shell label from shellname (e.g. "2026 Spring 2 (Online) Carlos Lee (My Custom Name)" -> "My Custom Name").
+        $shelllabel = null;
+        if (preg_match('/\s*\(([^)]+)\)\s*$/', $shellname, $labelmatches)) {
+            $shelllabel = '(' . $labelmatches[1] . ')';
         }
 
         // Collect all course abbreviations and numbers in a structured way.
@@ -676,15 +684,15 @@ class wdsprefs {
                     '-' . $universalid .
                     '-cl';
 
-        // Generate the fullname - only include (Shell X) if shellnum > 1.
+        // Generate the fullname - only include shell label if shellcount > 1.
         $fullname = $periodname .
                 ' ' . $fnidstring .
                 ' for ' . $user->firstname .
                 ' ' . $user->lastname;
 
-        // Add the shell number only if there's more than one shell.
+        // Add the shell label only if there's more than one shell. Use custom label from shellname when available.
         if ($shellcount > 1) {
-            $fullname .= ' (Shell ' . $shellnum . ')';
+            $fullname .= ' ' . ($shelllabel ?? '(Shell ' . $shellnum . ')');
             $idnumber .= '-shell_' . $shellnum;
         }
 
@@ -1301,7 +1309,12 @@ class wdsprefs {
 
                 // Create the shell name (use custom tag from form if provided).
                 $shellnamefield = "shell_{$i}_tag";
-                $customname = !empty($data->$shellnamefield) ? trim($data->$shellnamefield) : '';
+                $customname = '';
+                if (is_object($data) && isset($data->$shellnamefield)) {
+                    $customname = trim($data->$shellnamefield);
+                } elseif (is_array($data) && isset($data[$shellnamefield])) {
+                    $customname = trim($data[$shellnamefield]);
+                }
                 if ($customname !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $customname)) {
                     throw new \core\exception\invalid_parameter_exception(
                         get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs')
@@ -1316,7 +1329,8 @@ class wdsprefs {
                     $periodid,
                     $sectionids,
                     $shellname,
-                    $shellcount
+                    $shellcount,
+                    $i
                 );
 
                 if ($crosssplitid) {
