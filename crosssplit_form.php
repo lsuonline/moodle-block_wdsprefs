@@ -146,7 +146,7 @@ class crosssplit_form extends moodleform {
             $mform->addElement('text', "shell_{$i}_tag", '', ['size' => 20, 'class' => 'shell-tag', 'placeholder' => $defaultname]);
             $mform->setType("shell_{$i}_tag", PARAM_TEXT);
             $mform->setDefault("shell_{$i}_tag", '');
-            $mform->addElement('html', '<select class="form-control shell-select" id="shell_' . $i . '" data-shell-num="' . $i . '" multiple size="10"></select></div>');
+            $mform->addElement('html', '<select class="form-control shell-select" id="shell_' . $i . '" data-shell-num="' . $i . '" multiple size="2"></select></div>');
         }
 
         $mform->addElement('html', '</div></div>');
@@ -319,6 +319,13 @@ class crosssplit_form extends moodleform {
                     document.querySelector(`input[name="shell_${shellNum}_data"]`).value =
                         JSON.stringify(values);
                 });
+                updateShellSelectSizes();
+            }
+            function updateShellSelectSizes() {
+                document.querySelectorAll(".shell-select").forEach(function(select) {
+                    const count = select.options.length;
+                    select.size = Math.max(2, count);
+                });
             }
 
             // Restore shell selections from hidden fields (e.g. after validation errors)
@@ -354,6 +361,7 @@ class crosssplit_form extends moodleform {
                         }
                     });
                 });
+                updateShellSelectSizes();
             }
             restoreFromHiddenFields();
 
