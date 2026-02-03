@@ -577,6 +577,9 @@ class wdsprefs {
         // Collect old courseids.
         $oldcourseids = [];
 
+        // Collect section numbers for uids
+        $sectionnumbers = [];
+
         // Loop through the crosssplited sections to get the identifiers.
         foreach ($sectionids as $sectionid) {
 
@@ -590,6 +593,7 @@ class wdsprefs {
 
             // If we got section data.
             if ($section) {
+                $sectionnumbers[] = $section->section_number;
 
                 // Build out the sql.
                 $clsql = "SELECT course_subject_abbreviation,
@@ -664,9 +668,12 @@ class wdsprefs {
         // Remove space before (Online) and remove parentheses.
         $pname = str_replace(' (Online)', 'Online', $pname);
 
-        // Generate the idnumber.
+        $section_uid = !empty($sectionnumbers) ? implode('-', $sectionnumbers) : '';
+
+        // Generate the idnumber
         $idnumber = $pname .
                     $idnumberidentifiers .
+                    ($section_uid !== '' ? '-' . $section_uid : '') .
                     '-' . $universalid .
                     '-cl';
 
