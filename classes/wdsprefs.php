@@ -547,7 +547,7 @@ class wdsprefs {
      * @param @string $shellname Name for the crosssplited shell.
      * @return @int | @bool The new crosssplit_id if successful, false on failure.
      */
-    public static function create_crosssplit_shell($userid, $periodid, $sectionids, $shellname, $shellcount, $shellindex = null) {
+    public static function create_crosssplit_shell($userid, $periodid, $sectionids, $shellname, $shellcount) {
         global $DB, $CFG;
 
         // Require workdaystudent for course creation functionality.
@@ -571,13 +571,10 @@ class wdsprefs {
         // Get period info.
         $period = self::get_period_from_periodid($periodid);
 
-        // Extract shell number from shell name (for idnumber), or use shellindex when provided.
-        $shellnum = 1;
-        if (preg_match('/Shell (\d+)/', $shellname, $matches)) {
-            $shellnum = $matches[1];
-        } elseif ($shellindex !== null) {
-            $shellnum = $shellindex;
-        }
+        // Unique suffix for idnumber when shellcount > 1. Derived from section IDs so each shell gets a distinct idnumber.
+        $sortedids = $sectionids;
+        sort($sortedids);
+        $shellsuffix = substr(md5(implode(',', $sortedids)), 0, 8);
 
         // Extract custom shell label from shellname (e.g. "2026 Spring 2 (Online) Carlos Lee (My Custom Name)" -> "My Custom Name").
         $shelllabel = null;
@@ -692,8 +689,8 @@ class wdsprefs {
 
         // Add the shell label only if there's more than one shell. Use custom label from shellname when available.
         if ($shellcount > 1) {
-            $fullname .= ' ' . ($shelllabel ?? '(Shell ' . $shellnum . ')');
-            $idnumber .= '-shell_' . $shellnum;
+            $fullname .= ' ' . ($shelllabel ?? '(Shell ' . $shellsuffix . ')');
+            $idnumber .= '-shell_' . $shellsuffix;
         }
 
         // Set this for the course record and shortname.
@@ -1329,7 +1326,6 @@ class wdsprefs {
                     $sectionids,
                     $shellname,
                     $shellcount,
-                    $i
                 );
 
                 if ($crosssplitid) {
