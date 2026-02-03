@@ -141,7 +141,7 @@ class section_preferences_form extends moodleform {
                         '<div class="form-group  fitem  ">' .
                         '<div class="checkbox crosslisted"><label>' .
                             $section->name .
-                        ' is crosslisted, split, or cross-enrolled! Please <a href="' .
+                        ' is cross-listed, split, or cross-enrolled! Please <a href="' .
                         $clurl->out() .
                         '">undo the previous action</a> to unwant this section.' .
                         '</label></div></div>'
