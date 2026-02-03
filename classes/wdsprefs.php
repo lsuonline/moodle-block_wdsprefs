@@ -243,7 +243,7 @@ class wdsprefs {
                         $course->course_subject_abbreviation . ' ' .
                         $course->course_number . ' for ' .
                         $teacher->firstname . ' ' .
-                        $teacher->lastname;
+                        $teacher->lastname . $shelllabel;
 
                     // Build out the new course obj.
                     $coursedata = new stdClass();
@@ -547,7 +547,7 @@ class wdsprefs {
      * @param @string $shellname Name for the crosssplited shell.
      * @return @int | @bool The new crosssplit_id if successful, false on failure.
      */
-    public static function create_crosssplit_shell($userid, $periodid, $sectionids, $shellname, $shellcount) {
+    public static function create_crosssplit_shell($userid, $periodid, $sectionids, $shelllabel) {
         global $DB, $CFG;
 
         // Require workdaystudent for course creation functionality.
@@ -570,12 +570,6 @@ class wdsprefs {
 
         // Get period info.
         $period = self::get_period_from_periodid($periodid);
-
-        // Extract shell number from shell name.
-        $shellnum = 1;
-        if (preg_match('/Shell (\d+)/', $shellname, $matches)) {
-            $shellnum = $matches[1];
-        }
 
         // Collect all course abbreviations and numbers in a structured way.
         $coursesbyprefix = [];
@@ -676,17 +670,11 @@ class wdsprefs {
                     '-' . $universalid .
                     '-cl';
 
-        // Generate the fullname - only include (Shell X) if shellnum > 1.
+        // Generate the fullname
         $fullname = $periodname .
                 ' ' . $fnidstring .
                 ' for ' . $user->firstname .
-                ' ' . $user->lastname;
-
-        // Add the shell number only if there's more than one shell.
-        if ($shellcount > 1) {
-            $fullname .= ' (Shell ' . $shellnum . ')';
-            $idnumber .= '-shell_' . $shellnum;
-        }
+                ' ' . $user->lastname . ' ' . $shelllabel;
 
         // Set this for the course record and shortname.
         $timecreated = time();
@@ -1286,7 +1274,6 @@ class wdsprefs {
         // Process each shell's data from hidden fields.
         for ($i = 1; $i <= $shellcount; $i++) {
             $fieldname = "shell_{$i}_data";
-            $shellsections = [];
             $sectionids = [];
 
             if (!empty($data->$fieldname)) {
@@ -1298,22 +1285,34 @@ class wdsprefs {
                     continue;
                 }
 
-                // Create the shell name.
-                $shellname = "$periodname (Shell $i) for $teacher";
+                // Create the shell name (use custom tag from form if provided).
+                $shellnamefield = "shell_{$i}_tag";
+                $customname = '';
+                if (is_object($data) && isset($data->$shellnamefield)) {
+                    $customname = trim($data->$shellnamefield);
+                } elseif (is_array($data) && isset($data[$shellnamefield])) {
+                    $customname = trim($data[$shellnamefield]);
+                }
+                if ($customname !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $customname)) {
+                    throw new \core\exception\invalid_parameter_exception(
+                        get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs')
+                    );
+                }
+                $shelllabel = '(' . ($customname !== '' ? $customname : "Shell $i") . ')';
 
                 // Create the crosssplited shell.
                 $crosssplitid = self::create_crosssplit_shell(
                     $USER->id,
                     $periodid,
                     $sectionids,
-                    $shellname,
-                    $shellcount
+                    $shelllabel,
                 );
 
                 if ($crosssplitid) {
 
                     // Fetch the actual shell name from the DB.
                     $created_shell = $DB->get_record('block_wdsprefs_crosssplits', ['id' => $crosssplitid], 'shell_name');
+                    $shellname = '';
                     if ($created_shell) {
                         $shellname = $created_shell->shell_name;
                     }
@@ -2401,22 +2400,21 @@ class wdsprefs {
                 return [];
             }
 
-            // Create the shell name.
-            $shellname = "$periodname for $teacher";
+            $shelllabel = "($data->shelllabel)";
 
             // Create the crossenrolled shell.
             $crosssplitid = self::create_crosssplit_shell(
                 $USER->id,
                 $periodid,
                 $sectionids,
-                $shellname,
-                1
+                $shelllabel,
             );
 
             if ($crosssplitid) {
 
                 // Fetch the actual shell name from the DB.
                 $created_shell = $DB->get_record('block_wdsprefs_crosssplits', ['id' => $crosssplitid], 'shell_name');
+                $shellname = '';
                 if ($created_shell) {
                     $shellname = $created_shell->shell_name;
                 }
