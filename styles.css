@@ -107,25 +107,6 @@
     border-radius: 3px;
 }
 
-/* Shell tag input above preview string on assign step */
-.duallist-shell .fitem {
-    margin-bottom: 4px;
-}
-.duallist-shell .fitem .fitemtitle {
-    display: none;
-}
-.duallist-shell .duallist-shell-name-input,
-.duallist-shell input.duallist-shell-name-input {
-    width: 100%;
-    max-width: 20em;
-    box-sizing: border-box;
-}
-.duallist-shell-preview {
-    margin-bottom: 8px;
-    font-weight: 500;
-    color: #333;
-}
-
 #page-blocks-wdsprefs-crossenroll .card {
     border: 1px solid #ccc;
     border-radius: 3px 1em 1em 3px;
