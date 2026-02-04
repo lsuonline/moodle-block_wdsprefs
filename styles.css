@@ -6,6 +6,10 @@
 .wds .menu-item {
 }
 
+.path-blocks-wdsprefs .btn {
+    min-height: unset;
+}
+
 .wds .menu-link {
     text-decoration: none;
 }

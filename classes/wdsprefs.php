@@ -574,7 +574,7 @@ class wdsprefs {
         // Unique suffix for idnumber when shellcount > 1. Derived from section IDs so each shell gets a distinct idnumber.
         $sortedids = $sectionids;
         sort($sortedids);
-        $shellsuffix = substr(md5(implode(',', $sortedids)), 0, 8);
+        $shellsuffix = substr(md5(implode(',', $sortedids)), 0, 12);
 
         // Extract custom shell label from shellname (e.g. "2026 Spring 2 (Online) Carlos Lee (My Custom Name)" -> "My Custom Name").
         $shelllabel = null;
@@ -665,7 +665,6 @@ class wdsprefs {
         $fnidstring = implode(' / ', $fullnameidentifiers);
 
         // Build the period name.
-//        $periodname = self::get_current_taught_periods($section->academic_period_id);
         $periodname = self::get_current_taught_periods($period->academic_period_id);
         $periodname = reset($periodname);
 
@@ -679,18 +678,19 @@ class wdsprefs {
         $idnumber = $pname .
                     $idnumberidentifiers .
                     '-' . $universalid .
+                    '-' . $shellsuffix .
                     '-cl';
 
         // Generate the fullname - only include shell label if shellcount > 1.
         $fullname = $periodname .
                 ' ' . $fnidstring .
                 ' for ' . $user->firstname .
-                ' ' . $user->lastname;
+                ' ' . $user->lastname .
+                ' ' . $shelllabel ?? $shellsuffix;
 
         // Add the shell label only if there's more than one shell. Use custom label from shellname when available.
         if ($shellcount > 1) {
-            $fullname .= ' ' . ($shelllabel ?? '(Shell ' . $shellsuffix . ')');
-            $idnumber .= '-shell_' . $shellsuffix;
+//            $fullname .= ' ' . ($shelllabel ?? '(Shell ' . $shellsuffix . ')');
         }
 
         // Set this for the course record and shortname.
@@ -764,7 +764,7 @@ class wdsprefs {
             // Get the category based on subject of first course.
             $cat = self::get_subject_category($courseinfo->course_subject_abbreviation);
 
-            // TODO: Build out this shit in settings.
+            // Use the configured categories.
             $course->category = get_config('block_wdsprefs', 'blueprint_category_forced') ?
                 get_config('block_wdsprefs', 'blueprint_category') :
                 $cat->id;
