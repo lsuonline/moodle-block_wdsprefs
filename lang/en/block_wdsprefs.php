@@ -18,6 +18,7 @@
  * @package    block_wdsprefs
  * @copyright  2025 onwards Louisiana State University
  * @copyright  2025 onwards Robert Russo
+ * @copyright  2026 onwards Steve Mattsen
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -105,6 +106,7 @@ $string['wdsprefs:periodwithcount'] = '{$a->name} &mdash; {$a->count} available 
 $string['wdsprefs:crosssplitfail'] = 'Cross-splitting failed';
 $string['wdsprefs:shellname'] = 'Shell name';
 $string['wdsprefs:shelltaginvalid'] = 'Shell tag may only contain letters, numbers, dashes, underscores and spaces.';
+$string['wdsprefs:shelltagunique'] = 'Shell tags must be unique. Each shell must have a different name.';
 $string['wdsprefs:datecreated'] = 'Date created';
 $string['wdsprefs:actions'] = 'Actions';
 $string['wdsprefs:viewcourse'] = 'View course';

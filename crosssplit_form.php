@@ -18,6 +18,7 @@
  * @package    block_wdsprefs
  * @copyright  2025 onwards Louisiana State University
  * @copyright  2025 onwards Robert Russo
+ * @copyright  2026 onwards Steve Mattsen
  * @license    http://www . gnu . org/copyleft/gpl . html GNU GPL v3 or later
  */
 
@@ -390,12 +391,28 @@ class crosssplit_form extends moodleform {
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
         $shellcount = $this->_customdata['shellcount'] ?? 2;
+        $tag_by_field = [];
 
         for ($i = 1; $i <= $shellcount; $i++) {
             $fieldname = "shell_{$i}_tag";
             $value = isset($data[$fieldname]) ? trim($data[$fieldname]) : '';
             if ($value !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $value)) {
                 $errors[$fieldname] = get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs');
+            }
+            $tag_by_field[$fieldname] = core_text::strtolower($value !== '' ? $value : "Shell $i");
+        }
+        $fields_by_shelltag = [];
+        foreach ($tag_by_field as $fn => $key) {
+            if (!isset($errors[$fn])) {
+                $fields_by_shelltag[$key][] = $fn;
+            }
+        }
+        foreach ($fields_by_shelltag as $fieldnames) {
+            if (count($fieldnames) > 1) {
+                $err = get_string('wdsprefs:shelltagunique', 'block_wdsprefs');
+                foreach ($fieldnames as $fn) {
+                    $errors[$fn] = $err;
+                }
             }
         }
 
