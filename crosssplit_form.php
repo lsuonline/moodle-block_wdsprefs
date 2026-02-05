@@ -134,7 +134,8 @@ class crosssplit_form extends moodleform {
 
         // Shell sections (multiple boxes on right). Pass period/teacher for live preview.
         $shelltagerror = get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs');
-        $mform->addElement('html', '<div class="duallist-shells" data-period="' . s($period) . '" data-teacher="' . s($teacher) . '" data-shell-tag-error="' . s($shelltagerror) . '"><label>' .
+        $shelltaguniqueerror = get_string('wdsprefs:shelltagunique', 'block_wdsprefs');
+        $mform->addElement('html', '<div class="duallist-shells" data-period="' . s($period) . '" data-teacher="' . s($teacher) . '" data-shell-tag-error="' . s($shelltagerror) . '" data-shell-tag-unique-error="' . s($shelltaguniqueerror) . '"><label>' .
             get_string('wdsprefs:availableshells', 'block_wdsprefs') . '</label>'
         );
 
@@ -217,6 +218,29 @@ class crosssplit_form extends moodleform {
                     errorEl.style.display = "";
                 }
             }
+            var uniqueErrorMsg = shellsContainer ? shellsContainer.getAttribute("data-shell-tag-unique-error") || "" : "";
+            function validateShellTagUniqueness() {
+                var tagInputs = [];
+                document.querySelectorAll(".duallist-shell").forEach(function(shellBlock) {
+                    var num = shellBlock.getAttribute("data-shell-num");
+                    var inp = shellBlock.querySelector("input[name*=\"shell_\"][name*=\"_tag\"]");
+                    if (inp && num) tagInputs.push({ num: num, input: inp });
+                });
+                var fields_by_shelltag = {};
+                tagInputs.forEach(function(item) {
+                    var key = ((item.input.value || "").trim() || ("Shell " + item.num)).toLowerCase();
+                    if (!fields_by_shelltag[key]) fields_by_shelltag[key] = [];
+                    fields_by_shelltag[key].push(item.input);
+                });
+                tagInputs.forEach(function(item) {
+                    var key = ((item.input.value || "").trim() || ("Shell " + item.num)).toLowerCase();
+                    if (fields_by_shelltag[key].length > 1) {
+                        showShellTagError(item.input, uniqueErrorMsg);
+                    } else if (validateShellTag(item.input.value)) {
+                        hideShellTagError(item.input);
+                    }
+                });
+            }
             function bindShellTagInput(shellNum, input) {
                 if (!input || !shellNum || input.dataset.shellPreviewBound) return;
                 input.dataset.shellPreviewBound = "1";
@@ -228,6 +252,7 @@ class crosssplit_form extends moodleform {
                     } else {
                         showShellTagError(this, errorMsg);
                     }
+                    validateShellTagUniqueness();
                 }
                 input.addEventListener("input", onShellTagChange);
                 input.addEventListener("change", onShellTagChange);
@@ -370,8 +395,11 @@ class crosssplit_form extends moodleform {
             const form = document.querySelector("form.mform");
             if (form) {
                 form.addEventListener("submit", function(e) {
-                    // Final update of hidden fields before submission
                     updateHiddenFields();
+                    validateShellTagUniqueness();
+                    if (document.querySelector(".shell-tag.is-invalid")) {
+                        e.preventDefault();
+                    }
                 });
             }
         });
