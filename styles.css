@@ -175,6 +175,11 @@
     transform-style: preserve-3d;
 }
 
+.block_wdsprefs .wds.menu-item:hover .fa-minimize {
+    display: inline-block;
+    animation: compresssqueeze 1s ease-in-out;
+}
+
 .block_wdsprefs .wds.menu-item:hover .fa-folder-tree {
     display: inline-block;
     animation: spin3dy 1s linear 1;
@@ -202,6 +207,21 @@
     display: inline-block;
     animation: tick 6s steps(15, end) 1;
     transform-origin: center;
+}
+
+@keyframes compresssqueeze {
+    0% {
+        transform: scale(1, 1);
+    }
+    30% {
+        transform: scale(0.5, 1.0);
+    }
+    60% {
+        transform: scale(1.0, 0.5);
+    }
+    100% {
+        transform: scale(1, 1);
+    }
 }
 
 @keyframes tick {
