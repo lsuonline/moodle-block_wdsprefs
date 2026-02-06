@@ -225,6 +225,7 @@ if ($step == 'period') {
     // Initialize the second form with section data.
     $form3 = new crosssplit_form($actionurl, [
         'period' => $periodname,
+        'periodid' => $periodid,
         'teacher' => $teachername,
         'sectiondata' => $sectiondata,
         'shellcount' => $shellcount,

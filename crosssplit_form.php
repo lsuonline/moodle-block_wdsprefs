@@ -27,7 +27,7 @@ require_once("$CFG->libdir/formslib.php");
 class crosssplit_form extends moodleform {
 
     public function definition() {
-        global $CFG, $PAGE, $OUTPUT;
+        global $CFG, $PAGE, $OUTPUT, $USER;
 
         // Add the step parameter.
         $this->_form->addElement('hidden', 'step', 'assign');
@@ -81,7 +81,10 @@ class crosssplit_form extends moodleform {
             );
         }
 
-
+        $unavailable_shell_tags = $this->get_unavailable_shell_tags(
+            $USER->id, 
+            $this->_customdata['periodid'],
+        );
         // Instructions.
         $mform->addElement('html',
             '<div class="alert alert-info"><p>' .
@@ -156,6 +159,10 @@ class crosssplit_form extends moodleform {
         // Add JavaScript INLINE to manage the dual list functionality.
         $mform->addElement('html', '
         <script>
+        const unavailableShellTags = ' . json_encode(array_values($unavailable_shell_tags)) . ';
+        console.log(unavailableShellTags);
+        console.log("Period: ' . $this->_customdata['periodid'] . '");
+        console.log("Teacher: ' . $USER->id . '");
         document.addEventListener("DOMContentLoaded", function() {
             let activeShellId = "shell_1";
 
@@ -419,6 +426,8 @@ class crosssplit_form extends moodleform {
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
         $shellcount = $this->_customdata['shellcount'] ?? 2;
+        
+        $unavailable_shell_tags = $this->get_unavailable_shell_tags($data['userid'], $data['academic_period_id']);
         $tag_by_field = [];
 
         for ($i = 1; $i <= $shellcount; $i++) {
@@ -428,7 +437,12 @@ class crosssplit_form extends moodleform {
                 $errors[$fieldname] = get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs');
             }
             $tag_by_field[$fieldname] = core_text::strtolower($value !== '' ? $value : "Shell $i");
+            if (in_array($tag_by_field[$fieldname], $unavailable_shell_tags)) {
+                $errors[$fieldname] = get_string('wdsprefs:shelltagunavailable', 'block_wdsprefs');
+            }
         }
+
+        // Check uniqueness of shell tags.
         $fields_by_shelltag = [];
         foreach ($tag_by_field as $fn => $key) {
             if (!isset($errors[$fn])) {
@@ -436,6 +450,7 @@ class crosssplit_form extends moodleform {
             }
         }
         foreach ($fields_by_shelltag as $fieldnames) {
+            // If there are multiple fields with the same shell tag, add an error to each field.
             if (count($fieldnames) > 1) {
                 $err = get_string('wdsprefs:shelltagunique', 'block_wdsprefs');
                 foreach ($fieldnames as $fn) {
@@ -445,5 +460,30 @@ class crosssplit_form extends moodleform {
         }
 
         return $errors;
+    }
+
+    /**
+     * Get the unavailable shell tags for a section.
+     *
+     * @param @int $sectionid The section ID.
+     * @return @array The unavailable shell tags as an array of strings.
+     */
+    public function get_unavailable_shell_tags($userid, $academic_period_id) : array {
+        global $DB;
+
+        $params = ['userid' => $userid, 'academic_period_id' => $academic_period_id];
+        // Extract shell tag from the last parentheses in shell_name
+        $query = "SELECT 
+            SUBSTRING_INDEX(SUBSTRING_INDEX(shell_name, '(', -1), ')', 1) AS shell_tag
+            -- shell_name AS shell_tag
+            FROM {block_wdsprefs_crosssplits}
+            WHERE userid = :userid
+            AND academic_period_id = :academic_period_id
+            ORDER BY shell_tag ASC";
+        $shelltags = $DB->get_records_sql($query, $params);
+        $shelltags = array_map(function($shelltag) {
+            return $shelltag->shell_tag;
+        }, $shelltags);
+        return $shelltags;
     }
 }
