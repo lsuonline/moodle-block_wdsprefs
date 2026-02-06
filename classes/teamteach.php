@@ -33,9 +33,10 @@ class block_wdsprefs_teamteach {
      * Search for teachers by name or email.
      *
      * @param string $query
+     * @param string $academic_period_id
      * @return array
      */
-    public static function search_teachers(string $query): array {
+    public static function search_teachers(string $query, string $academic_period_id = ''): array {
         global $DB, $USER;
 
         $query = trim($query);
@@ -46,25 +47,8 @@ class block_wdsprefs_teamteach {
         // Avoid self-search.
         $excludeuserid = $USER->id;
 
-        // Use parameterized query for safety.
-//TODO: DEAL WITH LIMIT.
-        $sql = "SELECT t.userid, t.universal_id, 
-                       COALESCE(t.preferred_firstname, t.firstname) as firstname, 
-                       COALESCE(t.preferred_lastname, t.lastname) as lastname,
-                       u.email
-                FROM {enrol_wds_teachers} t
-                JOIN {user} u ON t.userid = u.id
-                WHERE t.userid != :excludeuserid
-                  AND (
-                      t.firstname LIKE :q1 OR 
-                      t.lastname LIKE :q2 OR 
-                      t.preferred_firstname LIKE :q3 OR 
-                      t.preferred_lastname LIKE :q4 OR 
-                      u.email LIKE :q5 OR
-                      CONCAT(COALESCE(t.preferred_firstname, t.firstname), ' ', COALESCE(t.preferred_lastname, t.lastname)) LIKE :q6
-                  )
-                LIMIT 20";
-
+        $joins = "";
+        $where_period = "";
         $params = [
             'excludeuserid' => $excludeuserid,
             'q1' => '%' . $query . '%',
@@ -74,6 +58,34 @@ class block_wdsprefs_teamteach {
             'q5' => '%' . $query . '%',
             'q6' => '%' . $query . '%'
         ];
+
+        if (!empty($academic_period_id)) {
+            $joins = " JOIN {enrol_wds_teacher_enroll} te ON t.universal_id = te.universal_id
+                       JOIN {enrol_wds_sections} s ON te.section_listing_id = s.section_listing_id ";
+            $where_period = " AND s.academic_period_id = :period_id ";
+            $params['period_id'] = $academic_period_id;
+        }
+
+        // Use parameterized query for safety.
+//TODO: DEAL WITH LIMIT.
+        $sql = "SELECT DISTINCT t.userid, t.universal_id,
+                       COALESCE(t.preferred_firstname, t.firstname) as firstname, 
+                       COALESCE(t.preferred_lastname, t.lastname) as lastname,
+                       u.email
+                FROM {enrol_wds_teachers} t
+                JOIN {user} u ON t.userid = u.id
+                $joins
+                WHERE t.userid != :excludeuserid
+                  $where_period
+                  AND (
+                      t.firstname LIKE :q1 OR 
+                      t.lastname LIKE :q2 OR 
+                      t.preferred_firstname LIKE :q3 OR 
+                      t.preferred_lastname LIKE :q4 OR 
+                      u.email LIKE :q5 OR
+                      CONCAT(COALESCE(t.preferred_firstname, t.firstname), ' ', COALESCE(t.preferred_lastname, t.lastname)) LIKE :q6
+                  )
+                LIMIT 20";
 
         return $DB->get_records_sql($sql, $params);
     }
@@ -228,18 +240,10 @@ class block_wdsprefs_teamteach {
             $body = str_replace($key, $value, $body);
         }
 
-        $emailuser = new stdClass();
-        $emailuser->email = $target_user->email;
-        $emailuser->firstname = $target_user->firstname;
-        $emailuser->lastname = $target_user->lastname;
-        $emailuser->maildisplay = true;
-        $emailuser->mailformat = 1;
-        $emailuser->id = $target_user->id;
-
         $from = $requester;
 
         // Let's use the requester as 'from' so they can reply.
-        return email_to_user($emailuser, $requester, $subject, text_to_html($body), $body);
+        return email_to_user($target_user, $requester, $subject, text_to_html($body), $body);
     }
 
     /**

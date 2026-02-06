@@ -127,19 +127,7 @@ echo html_writer::table($table);
 $approve_url = new moodle_url($url, ['action' => 'approve', 'confirm' => 1, 'sesskey' => sesskey()]);
 $decline_url = new moodle_url($url, ['action' => 'decline', 'confirm' => 1, 'sesskey' => sesskey()]);
 
-echo $OUTPUT->confirm(
-    get_string('wdsprefs:teamteach_confirm_approve', 'block_wdsprefs'),
-    $approve_url,
-    $url
-);
-
-if ($action == 'approve' && !$confirm) {
-
-    // TODO: Mayeb do it this way…IDFK yet.
-} 
-
 // Let's show buttons first, then confirm.
-
 if ($action == 'approve' && !$confirm) {
     echo $OUTPUT->confirm(
         get_string('wdsprefs:teamteach_confirm_approve', 'block_wdsprefs'),
@@ -159,8 +147,8 @@ if ($action == 'approve' && !$confirm) {
     $decline_btn_url = new moodle_url($url, ['action' => 'decline']);
     
     echo html_writer::start_tag('div', ['class' => 'mt-4 text-center']);
-    echo $OUTPUT->single_button($approve_btn_url, get_string('wdsprefs:teamteach_approve', 'block_wdsprefs'), 'post', ['class' => 'btn-success']);
-    echo $OUTPUT->single_button($decline_btn_url, get_string('wdsprefs:teamteach_decline', 'block_wdsprefs'), 'post', ['class' => 'btn-danger']);
+    echo $OUTPUT->single_button($approve_btn_url, get_string('wdsprefs:teamteach_approve', 'block_wdsprefs'), 'post', ['class' => 'tt-approve']);
+    echo $OUTPUT->single_button($decline_btn_url, get_string('wdsprefs:teamteach_decline', 'block_wdsprefs'), 'post', ['class' => 'tt-decline']);
     echo html_writer::end_tag('div');
 }
 

@@ -154,6 +154,25 @@
     margin-left: 1em;
 }
 
+/* Team Teaching */
+#page-blocks-wdsprefs-teamteach_action div.tt-approve,
+#page-blocks-wdsprefs-teamteach_action div.tt-decline {
+    display: inline-block;
+    margin: auto 0.5em auto 0.5em;
+}
+
+#page-blocks-wdsprefs-teamteach_action div.tt-approve button:hover {
+    background-color: #006600;
+    border-color: #006600;
+    color: white;
+}
+
+#page-blocks-wdsprefs-teamteach_action div.tt-decline button:hover {
+    background-color: #660000;
+    border-color: #660000;
+    color: white;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .duallist-container {

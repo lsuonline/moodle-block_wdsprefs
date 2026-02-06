@@ -116,7 +116,11 @@ if ($target_course_id) {
 
     // Teacher Results.
     if ($search_query) {
-        $teachers = block_wdsprefs_teamteach::search_teachers($search_query);
+        $academic_period_id = '';
+        if (isset($shells[$target_course_id])) {
+            $academic_period_id = $shells[$target_course_id]['period_id'];
+        }
+        $teachers = block_wdsprefs_teamteach::search_teachers($search_query, $academic_period_id);
         
         if (empty($teachers)) {
             echo $OUTPUT->notification(get_string('wdsprefs:teamteach_no_teacher_found', 'block_wdsprefs'), 'warning');
