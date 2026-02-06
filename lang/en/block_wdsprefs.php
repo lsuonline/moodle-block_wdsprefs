@@ -168,9 +168,9 @@ $string['wdsprefs:mustselectfromtwo'] = 'You must select at least one section fr
 
 // Team Teach strings.
 $string['wdsprefs:teamteach'] = 'Team teaching';
-$string['wdsprefs:teamteach_desc'] = 'Team teaching allows you to invite another instructor to teach a section within your course shell.';
-$string['wdsprefs:teamteachheading'] = 'Team Teaching';
-$string['wdsprefs:teamteach_expiry_hours'] = 'Request expiry (hours)';
+$string['wdsprefs:teamteach_desc'] = 'Team teaching allows you to invite another instructor to teach one or more sections within your course shell.';
+$string['wdsprefs:teamteachheading'] = 'Team teaching';
+$string['wdsprefs:teamteach_expiry_hours'] = 'Request expiration (hours)';
 $string['wdsprefs:teamteach_expiry_hours_desc'] = 'Number of hours before a team teach request expires.';
 $string['wdsprefs:teamteach_email_subject'] = 'Email subject';
 $string['wdsprefs:teamteach_email_subject_desc'] = 'Subject line for the team teach invitation email.';
@@ -209,3 +209,33 @@ $string['wdsprefs:teamteach_confirm_decline'] = 'Are you sure you want to declin
 $string['wdsprefs:teamteach_self_request'] = 'You cannot send a request to yourself.';
 $string['wdsprefs:teamteach_pending'] = 'Pending';
 $string['wdsprefs:teamteach_link_sent'] = 'A request has been sent to {$a}.';
+$string['wdsprefs:teamteach_revoked_subject'] = 'Team-teach request revoked: {$a->course}';
+$string['wdsprefs:teamteach_revoked_body'] = 'Hello {$a->recipient},
+
+The Team Teach arrangement for course "{$a->course}" has been {$a->action} by {$a->actor}.
+The sections have been moved back to their original course shells.
+
+Best regards,
+{$a->actor}';
+$string['wdsprefs:revoked'] = 'revoked';
+$string['wdsprefs:undone'] = 'undone';
+$string['wdsprefs:teamteach_my_requests'] = 'My team-teach requests';
+$string['wdsprefs:teamteach_requests_for_me'] = 'My team-teach invitations';
+$string['wdsprefs:teamteach_status'] = 'Status';
+$string['wdsprefs:teamteach_action'] = 'Action';
+$string['wdsprefs:teamteach_cancel'] = 'Cancel';
+$string['wdsprefs:teamteach_undo'] = 'Undo';
+$string['wdsprefs:teamteach_revoke'] = 'Revoke';
+$string['wdsprefs:teamteach_confirm_cancel'] = 'Are you sure you want to cancel this pending team-teach request?';
+$string['wdsprefs:teamteach_confirm_undo'] = 'Are you sure you want to undo this team-teach? External sections will be returned to their original shells.';
+$string['wdsprefs:teamteach_confirm_revoke'] = 'Are you sure you want to revoke this team teach? Your sections will be returned to their original shells if they exist, otehrwise new shells will be created and your students will be enrolled.';
+$string['wdsprefs:teamteach_cancelled'] = 'Team-teach request cancelled.';
+$string['wdsprefs:teamteach_undone_success'] = 'Team-teach request undone successfully.';
+$string['wdsprefs:teamteach_revoked_success'] = 'Team-teach request revoked successfully.';
+$string['wdsprefs:teamteach_failed_action'] = 'Action failed.';
+$string['wdsprefs:teamteach_status_pending'] = 'Pending';
+$string['wdsprefs:teamteach_status_approved'] = 'Approved';
+$string['wdsprefs:teamteach_status_declined'] = 'Declined';
+$string['wdsprefs:teamteach_status_expired'] = 'Expired';
+$string['wdsprefs:teamteach_status_cancelled'] = 'Cancelled';
+$string['wdsprefs:teamteach_status_revoked'] = 'Revoked';

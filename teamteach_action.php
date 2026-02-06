@@ -145,7 +145,7 @@ if ($action == 'approve' && !$confirm) {
     // Show buttons.
     $approve_btn_url = new moodle_url($url, ['action' => 'approve']);
     $decline_btn_url = new moodle_url($url, ['action' => 'decline']);
-    
+
     echo html_writer::start_tag('div', ['class' => 'mt-4 text-center']);
     echo $OUTPUT->single_button($approve_btn_url, get_string('wdsprefs:teamteach_approve', 'block_wdsprefs'), 'post', ['class' => 'tt-approve']);
     echo $OUTPUT->single_button($decline_btn_url, get_string('wdsprefs:teamteach_decline', 'block_wdsprefs'), 'post', ['class' => 'tt-decline']);
