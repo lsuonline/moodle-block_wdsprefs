@@ -297,16 +297,31 @@ if ($target_course_id && $selected_teacher_id) {
 
             $label = $section->course_subject_abbreviation . ' ' . $section->course_number . ' ' . $section->section_number;
 
+            // Check if section is available.
+            $status = block_wdsprefs_teamteach::check_section_status($section->id, $selected_teacher_id);
+            $disabled = '';
+            $status_message = '';
+
+            if (!$status['available']) {
+                $disabled = 'disabled';
+                $status_message = html_writer::tag('span', ' (' . $status['message'] . ')', ['class' => 'text-muted small']);
+            }
+
             // Add checkbox.
             echo html_writer::start_tag('div', ['class' => 'form-check']);
-            echo html_writer::empty_tag('input', [
+            $input_attributes = [
                 'type' => 'checkbox',
                 'name' => 'section_ids[]',
                 'value' => $section->id,
                 'class' => 'form-check-input',
                 'id' => 'section_' . $section->id
-            ]);
-            echo html_writer::label($label, 'section_' . $section->id, false, ['class' => 'form-check-label']);
+            ];
+            if ($disabled) {
+                $input_attributes['disabled'] = 'disabled';
+            }
+
+            echo html_writer::empty_tag('input', $input_attributes);
+            echo html_writer::label($label . $status_message, 'section_' . $section->id, false, ['class' => 'form-check-label']);
             echo html_writer::end_tag('div');
         }
 

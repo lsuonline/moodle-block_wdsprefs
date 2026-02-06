@@ -792,4 +792,52 @@ class block_wdsprefs_teamteach {
             'timecreated DESC'
         );
     }
+
+    /**
+     * Check the status of a section to see if it is already cross-listed, split, or team taught.
+     *
+     * @param int $section_id The ID of the section to check.
+     * @param int $teacher_id The ID of the teacher.
+     * @return array [available (bool), message (string)]
+     */
+    public static function check_section_status(int $section_id, int $teacher_id): array {
+        global $DB;
+
+        // Check if section is cross-listed, split, or cross-enrolled.
+        $cross_section = $DB->get_record('block_wdsprefs_crosssplit_sections', ['section_id' => $section_id]);
+        if ($cross_section) {
+            $crosssplit = $DB->get_record('block_wdsprefs_crosssplits', ['id' => $cross_section->crosssplit_id]);
+            $shell_name = $crosssplit ? $crosssplit->shell_name : 'Unknown Shell';
+            return [
+                'available' => false,
+                'message' => get_string('wdsprefs:section_already_crosslisted', 'block_wdsprefs', $shell_name)
+            ];
+        }
+
+        // Check if section is already involved in a team teach request (pending or approved).
+        $sql = "SELECT * FROM {block_wdsprefs_teamteach}
+                WHERE requested_userid = :teacherid
+                  AND (status = 'pending' OR status = 'approved')";
+        $requests = $DB->get_records_sql($sql, ['teacherid' => $teacher_id]);
+
+        foreach ($requests as $request) {
+            $requested_sections = json_decode($request->requested_section_ids);
+            if (is_array($requested_sections) && in_array($section_id, $requested_sections)) {
+
+                // Ignore expired pending requests.
+                if ($request->status == 'pending' && $request->expirytime < time()) {
+                    continue;
+                }
+
+                $course = $DB->get_record('course', ['id' => $request->target_course_id]);
+                $course_name = $course ? $course->fullname : 'Unknown Course';
+                return [
+                    'available' => false,
+                    'message' => get_string('wdsprefs:section_already_teamtaught', 'block_wdsprefs', $course_name)
+                ];
+            }
+        }
+
+        return ['available' => true, 'message' => ''];
+    }
 }
