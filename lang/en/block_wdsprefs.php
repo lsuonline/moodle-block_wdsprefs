@@ -145,7 +145,7 @@ $string['wdsprefs:blueprintstatus_created'] = 'Created';
 $string['wdsprefs:blueprintstatus_failed'] = 'Failed';
 
 // Undo cross-splitting strings.
-$string['wdsprefs:undo'] = 'Undo cross-listing, splitting & cross-enrollment';
+$string['wdsprefs:undo'] = 'Undo cross-listing, splitting, and cross-enrollment';
 $string['wdsprefs:undoconfirm'] = 'Are you sure you want to undo this cross-listing, splitting, or cross-enrollment? This will reset sections to their original course shells and move enrollments accordingly. This action cannot be undone.';
 $string['wdsprefs:undosuccess'] = 'Cross-listing, splitting, and cross-enrollment successfully undone. Sections have been reset to their original course shells.';
 $string['wdsprefs:undofailed'] = 'Failed to undo cross-listing, splitting, or cross-enrollment. Please contact support.';
@@ -211,13 +211,10 @@ $string['wdsprefs:teamteach_self_request'] = 'You cannot send a request to yours
 $string['wdsprefs:teamteach_pending'] = 'Pending';
 $string['wdsprefs:teamteach_link_sent'] = 'A request has been sent to {$a}.';
 $string['wdsprefs:teamteach_revoked_subject'] = 'Team-teach request revoked: {$a->course}';
-$string['wdsprefs:teamteach_revoked_body'] = 'Hello {$a->recipient},
-
-The Team Teach arrangement for course "{$a->course}" has been {$a->action} by {$a->actor}.
-The sections have been moved back to their original course shells.
-
-Best regards,
-{$a->actor}';
+$string['wdsprefs:teamteach_revoked_body'] = 'Hello {$a->recipient},<br><br>
+The team-teaching arrangement for course "{$a->course}" has been {$a->action}.<br><br>
+The sections have been moved back to their original course shells.<br><br>
+Best regards,<br>{$a->actor}';
 $string['wdsprefs:revoked'] = 'revoked';
 $string['wdsprefs:undone'] = 'undone';
 $string['wdsprefs:teamteach_my_requests'] = 'My team-teach requests';
