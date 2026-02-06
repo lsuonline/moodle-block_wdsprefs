@@ -370,16 +370,15 @@ if (!function_exists('render_teamteach_table')) {
                     $actions .= $OUTPUT->single_button($decline_url, get_string('wdsprefs:teamteach_decline', 'block_wdsprefs'), 'post');
                 }
             } elseif ($r->status == 'approved') {
-                 if ($is_requester) {
-
-                     // Undo Button.
-                     $undo_url = new moodle_url($url, ['action' => 'undo', 'request_id' => $r->id, 'sesskey' => sesskey()]);
-                     $actions .= $OUTPUT->single_button($undo_url, get_string('wdsprefs:teamteach_undo', 'block_wdsprefs'), 'post');
-                 } else {
-                     // Revoke Button.
-                     $revoke_url = new moodle_url($url, ['action' => 'revoke', 'request_id' => $r->id, 'sesskey' => sesskey()]);
-                     $actions .= $OUTPUT->single_button($revoke_url, get_string('wdsprefs:teamteach_revoke', 'block_wdsprefs'), 'post');
+                 // View Course Button.
+                 if ($course) {
+                     $course_url = new moodle_url('/course/view.php', ['id' => $course->id]);
+                     $actions .= html_writer::link($course_url, get_string('wdsprefs:viewcourse', 'block_wdsprefs'), ['class' => 'btn btn-primary btn-sm mr-1', 'target' => '_blank']);
                  }
+
+                 // View Sections Button.
+                 $sections_url = new moodle_url('/blocks/wdsprefs/teamteach_sections.php', ['request_id' => $r->id]);
+                 $actions .= html_writer::link($sections_url, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['class' => 'btn btn-secondary btn-sm']);
             }
             $status_string = ucfirst($r->status);
             $status_key = 'wdsprefs:teamteach_status_' . $r->status;
@@ -402,9 +401,9 @@ if (!function_exists('render_teamteach_table')) {
 
 // Requests I have made.
 $my_pending = block_wdsprefs_teamteach::get_pending_requests_by_requester($USER->id);
-$my_history = block_wdsprefs_teamteach::get_history_requests_by_requester($USER->id);
+$my_approved = block_wdsprefs_teamteach::get_approved_requests_by_requester($USER->id);
 
-if ($my_pending || $my_history) {
+if ($my_pending || $my_approved) {
     echo html_writer::tag('h3', get_string('wdsprefs:teamteach_my_requests', 'block_wdsprefs'));
 
     if ($my_pending) {
@@ -412,17 +411,17 @@ if ($my_pending || $my_history) {
         echo render_teamteach_table($my_pending, true);
     }
 
-    if ($my_history) {
-        echo html_writer::tag('h4', 'History');
-        echo render_teamteach_table($my_history, true);
+    if ($my_approved) {
+        echo html_writer::tag('h4', get_string('wdsprefs:teamteach_status_approved', 'block_wdsprefs'));
+        echo render_teamteach_table($my_approved, true);
     }
 }
 
 // Requests for me.
 $for_me_pending = block_wdsprefs_teamteach::get_pending_requests_by_requested($USER->id);
-$for_me_history = block_wdsprefs_teamteach::get_history_requests_by_requested($USER->id);
+$for_me_approved = block_wdsprefs_teamteach::get_approved_requests_by_requested($USER->id);
 
-if ($for_me_pending || $for_me_history) {
+if ($for_me_pending || $for_me_approved) {
     echo html_writer::tag('h3', get_string('wdsprefs:teamteach_requests_for_me', 'block_wdsprefs'));
 
     if ($for_me_pending) {
@@ -430,9 +429,9 @@ if ($for_me_pending || $for_me_history) {
         echo render_teamteach_table($for_me_pending, false);
     }
 
-    if ($for_me_history) {
-        echo html_writer::tag('h4', 'History');
-        echo render_teamteach_table($for_me_history, false);
+    if ($for_me_approved) {
+        echo html_writer::tag('h4', get_string('wdsprefs:teamteach_status_approved', 'block_wdsprefs'));
+        echo render_teamteach_table($for_me_approved, false);
     }
 }
 

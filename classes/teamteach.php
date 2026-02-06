@@ -217,6 +217,7 @@ class block_wdsprefs_teamteach {
         if (empty($subject)) {
             $subject = get_string('wdsprefs:teamteach_email_subject_default', 'block_wdsprefs', ['requester' => fullname($requester)]);
         } else {
+
              // Replace basic placeholders in subject if any.
              $subject = str_replace('{requester}', fullname($requester), $subject);
         }
@@ -272,10 +273,7 @@ class block_wdsprefs_teamteach {
             return false;
         }
 
-        $request->status = 'declined';
-        $request->timemodified = time();
-
-        return $DB->update_record('block_wdsprefs_teamteach', $request);
+        return $DB->delete_records('block_wdsprefs_teamteach', ['id' => $requestid]);
     }
 
     /**
@@ -455,10 +453,7 @@ class block_wdsprefs_teamteach {
             return false;
         }
 
-        $request->status = 'cancelled';
-        $request->timemodified = time();
-
-        return $DB->update_record('block_wdsprefs_teamteach', $request);
+        return $DB->delete_records('block_wdsprefs_teamteach', ['id' => $requestid]);
     }
 
     /**
@@ -491,8 +486,8 @@ class block_wdsprefs_teamteach {
         try {
             $section_ids = json_decode($request->requested_section_ids);
             if (empty($section_ids)) {
-                // Nothing to undo?
-                // Just fall through to update status.
+
+                // If there is nothing to undo, fall through to update status.
             } else {
 
                 // Get Target Course.
@@ -523,20 +518,19 @@ class block_wdsprefs_teamteach {
                     if ($target_course) {
                         $group = $DB->get_record('groups', ['courseid' => $target_course->id, 'name' => $groupname]);
                         if ($group) {
+
                             // We will remove members later.
                         }
                     }
 
-                    // Identify the Primary Teacher of this section (Requested User).
-                    // We need this to reconstruct the IDNumber.
-                    // Note: The requested_userid is the one who OWNS the section originally.
+                    // Identify the Primary Teacher of this section (Requested User) to reconstruct the IDNumber.
                     $teacher_record = $DB->get_record('enrol_wds_teachers', ['userid' => $request->requested_userid]);
                     $requested_user = $DB->get_record('user', ['id' => $request->requested_userid]);
 
                     // Determine Original Course.
                     $original_course = null;
 
-                    // 1. Check if it belongs to a CrossSplit.
+                    // Check if it belongs to a Cross-split.
                     $cross_section = $DB->get_record('block_wdsprefs_crosssplit_sections', ['section_id' => $section_id]);
                     if ($cross_section) {
                         $crosssplit = $DB->get_record('block_wdsprefs_crosssplits', ['id' => $cross_section->crosssplit_id]);
@@ -545,8 +539,9 @@ class block_wdsprefs_teamteach {
                         }
                     }
 
-                    // 2. If not found, use Standard Shell logic.
+                    // If not found, use Standard Shell logic.
                     if (!$original_course) {
+
                         // Period Info.
                         $period = $DB->get_record('enrol_wds_periods', ['academic_period_id' => $section->academic_period_id]);
 
@@ -624,6 +619,7 @@ class block_wdsprefs_teamteach {
 
                     foreach ($students as $stu) {
                         if ($stu->userid) {
+
                             // Enrol in Original.
                             $plugin->enrol_user($original_instance, $stu->userid, $studentrole, $stu->registered_date, $stu->drop_date, ENROL_USER_ACTIVE);
 
@@ -653,7 +649,7 @@ class block_wdsprefs_teamteach {
                             // Enrol in Original.
                             $plugin->enrol_user($original_instance, $tea->userid, $roleid, time(), 0, ENROL_USER_ACTIVE);
 
-                            // Unenrol from Target (Only if not requester/target-owner?)
+                            // Unenrol from Target (Only if not requester/target-owner).
                             if ($target_instance && $tea->userid != $request->requester_userid) {
                                 $plugin->unenrol_user($target_instance, $tea->userid);
                             }
@@ -666,11 +662,8 @@ class block_wdsprefs_teamteach {
                 }
             }
 
-            $request->status = 'revoked';
-            $request->timemodified = time();
-            $DB->update_record('block_wdsprefs_teamteach', $request);
-
             self::send_revoke_email($request, $userid);
+            $DB->delete_records('block_wdsprefs_teamteach', ['id' => $requestid]);
 
             $transaction->allow_commit();
             return true;
@@ -744,6 +737,20 @@ class block_wdsprefs_teamteach {
     }
 
     /**
+     * Get approved requests made by a user.
+     *
+     * @param int $userid
+     * @return array
+     */
+    public static function get_approved_requests_by_requester(int $userid): array {
+        global $DB;
+        return $DB->get_records('block_wdsprefs_teamteach',
+            ['requester_userid' => $userid, 'status' => 'approved'],
+            'timecreated DESC'
+        );
+    }
+
+    /**
      * Get pending requests received by a user.
      *
      * @param int $userid
@@ -769,6 +776,20 @@ class block_wdsprefs_teamteach {
             'requested_userid = :userid AND status != :status',
             ['userid' => $userid, 'status' => 'pending'],
             'timemodified DESC'
+        );
+    }
+
+    /**
+     * Get approved requests received by a user.
+     *
+     * @param int $userid
+     * @return array
+     */
+    public static function get_approved_requests_by_requested(int $userid): array {
+        global $DB;
+        return $DB->get_records('block_wdsprefs_teamteach',
+            ['requested_userid' => $userid, 'status' => 'approved'],
+            'timecreated DESC'
         );
     }
 }

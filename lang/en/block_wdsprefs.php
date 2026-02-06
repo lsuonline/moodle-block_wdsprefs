@@ -39,7 +39,7 @@ $string['wdsprefs:coursename'] = 'Course';
 $string['wdsprefs:crossenroll'] = 'Cross-enroll';
 $string['wdsprefs:crosssplit'] = 'Cross-list & split';
 $string['wdsprefs:schedule'] = 'Course schedule';
-$string['wdsprefs:teamteach'] = 'Team teaching';
+$string['wdsprefs:teamteach'] = 'Team-teaching';
 $string['wdsprefs:unwant'] = 'Unwanted sections';
 $string['wdsprefs:user'] = 'User preferences';
 
@@ -167,16 +167,17 @@ $string['wdsprefs:notenoughsectionsforcrossenroll'] = 'You must have at least tw
 $string['wdsprefs:mustselectfromtwo'] = 'You must select at least one section from at least two different academic periods to cross-enroll.<br>If you are trying to cross-list courses within the same academic period, please use the {$a} tool.';
 
 // Team Teach strings.
-$string['wdsprefs:teamteach'] = 'Team teaching';
-$string['wdsprefs:teamteach_desc'] = 'Team teaching allows you to invite another instructor to teach one or more sections within your course shell.';
-$string['wdsprefs:teamteachheading'] = 'Team teaching';
+$string['wdsprefs:teamteach'] = 'Team-teaching';
+$string['wdsprefs:teamteach_desc'] = 'Team-teaching allows you to invite another instructor to teach one or more sections within your course shell.';
+$string['wdsprefs:teamteachheading'] = 'Team-teaching';
+$string['wdsprefs:teamteachsections'] = 'Team-teach sections';
 $string['wdsprefs:teamteach_expiry_hours'] = 'Request expiration (hours)';
-$string['wdsprefs:teamteach_expiry_hours_desc'] = 'Number of hours before a team teach request expires.';
+$string['wdsprefs:teamteach_expiry_hours_desc'] = 'Number of hours before a team-teach request expires.';
 $string['wdsprefs:teamteach_email_subject'] = 'Email subject';
-$string['wdsprefs:teamteach_email_subject_desc'] = 'Subject line for the team teach invitation email.';
+$string['wdsprefs:teamteach_email_subject_desc'] = 'Subject line for the team-teach invitation email.';
 $string['wdsprefs:teamteach_email_subject_default'] = 'Team Teach Request from {$a->requester}';
 $string['wdsprefs:teamteach_email_body'] = 'Email body';
-$string['wdsprefs:teamteach_email_body_desc'] = 'Body of the team teach invitation email. Supported placeholders: {requester}, {course}, {sections}, {link}, {expiry}.';
+$string['wdsprefs:teamteach_email_body_desc'] = 'Body of the team-teach invitation email. Supported placeholders: {requester}, {course}, {sections}, {link}, {expiry}.';
 $string['wdsprefs:teamteach_email_body_default'] = '<p>Hello,</p>
 <p>{requester} has requested to add your section(s):</p>
 <p>{sections}</p>
@@ -188,8 +189,8 @@ $string['wdsprefs:teamteach_search_teacher'] = 'Search for instructor';
 $string['wdsprefs:teamteach_search_placeholder'] = 'Search by First Name, Last Name, or Email';
 $string['wdsprefs:teamteach_select_sections'] = 'Select sections to request';
 $string['wdsprefs:teamteach_submit_request'] = 'Send Request';
-$string['wdsprefs:teamteach_request_created'] = 'Team teach request sent successfully.';
-$string['wdsprefs:teamteach_request_failed'] = 'Failed to create team teach request.';
+$string['wdsprefs:teamteach_request_created'] = 'Team-teach request sent successfully.';
+$string['wdsprefs:teamteach_request_failed'] = 'Failed to create team-teach request.';
 $string['wdsprefs:teamteach_no_sections_found'] = 'No eligible sections found for this instructor in the selected academic period.';
 $string['wdsprefs:teamteach_no_teacher_found'] = 'No instructor found matching your search.';
 $string['wdsprefs:teamteach_invalid_request'] = 'Invalid request.';
@@ -228,7 +229,7 @@ $string['wdsprefs:teamteach_undo'] = 'Undo';
 $string['wdsprefs:teamteach_revoke'] = 'Revoke';
 $string['wdsprefs:teamteach_confirm_cancel'] = 'Are you sure you want to cancel this pending team-teach request?';
 $string['wdsprefs:teamteach_confirm_undo'] = 'Are you sure you want to undo this team-teach? External sections will be returned to their original shells.';
-$string['wdsprefs:teamteach_confirm_revoke'] = 'Are you sure you want to revoke this team teach? Your sections will be returned to their original shells if they exist, otehrwise new shells will be created and your students will be enrolled.';
+$string['wdsprefs:teamteach_confirm_revoke'] = 'Are you sure you want to revoke this team-teach? Your sections will be returned to their original shells if they exist, otherwise new shells will be created and your students will be enrolled.';
 $string['wdsprefs:teamteach_cancelled'] = 'Team-teach request cancelled.';
 $string['wdsprefs:teamteach_undone_success'] = 'Team-teach request undone successfully.';
 $string['wdsprefs:teamteach_revoked_success'] = 'Team-teach request revoked successfully.';
