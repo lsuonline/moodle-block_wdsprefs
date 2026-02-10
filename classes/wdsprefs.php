@@ -1312,7 +1312,7 @@ class wdsprefs {
                 } elseif (is_array($data) && isset($data[$shellnamefield])) {
                     $customname = trim($data[$shellnamefield]);
                 }
-                $customname = core_text::substr($customname, 0, 128);
+                $customname = core_text::substr($customname, 0, 64);
                 if ($customname !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $customname)) {
                     throw new \core\exception\invalid_parameter_exception(
                         get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs')
