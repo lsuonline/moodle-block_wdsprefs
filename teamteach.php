@@ -176,18 +176,38 @@ $send_request = optional_param('send_request', '', PARAM_TEXT);
 // Get user's WDS courses (shells).
 $my_courses = wdsprefs::get_courses($USER->id);
 $shells = [];
+$potential_shells = [];
+
+// Group sections by Moodle course ID first to check eligibility as a whole shell.
 foreach ($my_courses as $period_id => $period_sections) {
     foreach ($period_sections as $section) {
         if (!empty($section->moodle_courseid) && is_numeric($section->moodle_courseid)) {
-            $course_obj = $DB->get_record('course', ['id' => $section->moodle_courseid]);
-            if ($course_obj) {
-                $shells[$section->moodle_courseid] = [
-                    'id' => $course_obj->id,
-                    'fullname' => $course_obj->fullname,
-                    'period_id' => $section->academic_period_id
-                ];
+            if (!isset($potential_shells[$section->moodle_courseid])) {
+                $course_obj = $DB->get_record('course', ['id' => $section->moodle_courseid]);
+                if ($course_obj) {
+                    $potential_shells[$section->moodle_courseid] = [
+                        'id' => $course_obj->id,
+                        'fullname' => $course_obj->fullname,
+                        'period_id' => $section->academic_period_id,
+                        'section_ids' => []
+                    ];
+                }
+            }
+            if (isset($potential_shells[$section->moodle_courseid])) {
+                $potential_shells[$section->moodle_courseid]['section_ids'][] = $section->id;
             }
         }
+    }
+}
+
+// Filter shells based on eligibility.
+foreach ($potential_shells as $moodle_courseid => $shell_data) {
+    if (block_wdsprefs_teamteach::check_shell_eligibility($moodle_courseid, $shell_data['section_ids'])) {
+        $shells[$moodle_courseid] = [
+            'id' => $shell_data['id'],
+            'fullname' => $shell_data['fullname'],
+            'period_id' => $shell_data['period_id']
+        ];
     }
 }
 

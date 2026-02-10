@@ -840,4 +840,80 @@ class block_wdsprefs_teamteach {
 
         return ['available' => true, 'message' => ''];
     }
+
+    /**
+     * Check if a shell is eligible to be a target course for team teaching.
+     *
+     * @param int $moodle_course_id The Moodle course ID of the shell.
+     * @param array $section_ids Array of section IDs contained in the shell.
+     * @return bool True if eligible, false otherwise.
+     */
+    public static function check_shell_eligibility(int $moodle_course_id, array $section_ids): bool {
+        global $DB;
+        static $tt_requests_cache = null;
+
+        // If a course has no sections left, what should we do with it?
+        if (empty($section_ids)) {
+            return false;
+        }
+
+        /*
+        // TODO: Should I be doing this? Not according to Erica and Melissa.
+        // Check if shell is a crosssplit course.
+        if ($DB->record_exists('block_wdsprefs_crosssplits', ['moodle_course_id' => $moodle_course_id])) {
+            return false;
+        }
+        */
+
+        /*
+        // TODO: Should I be doing this? Not according to Erica and Melissa.
+        // Check if shell is already a target course in a team teach request.
+        $sql_tt_target = "SELECT id, status, expirytime FROM {block_wdsprefs_teamteach}
+                          WHERE target_course_id = :courseid
+                            AND (status = 'pending' OR status = 'approved')";
+        $target_requests = $DB->get_records_sql($sql_tt_target, ['courseid' => $moodle_course_id]);
+
+        foreach ($target_requests as $req) {
+             if ($req->status == 'approved') {
+                 return false;
+             }
+             if ($req->status == 'pending' && $req->expirytime > time()) {
+                 return false;
+             }
+        }
+        */
+
+        /*
+        // TODO: Should I be doing this? Not according to Erica and Melissa.
+        // Check if any section is part of a crosssplit.
+        list($insql, $inparams) = $DB->get_in_or_equal($section_ids);
+        $sql_cs_sec = "SELECT id FROM {block_wdsprefs_crosssplit_sections} WHERE section_id $insql";
+        if ($DB->record_exists_sql($sql_cs_sec, $inparams)) {
+             return false;
+        }
+        */
+
+        // Check if any section is part of a team teach request.
+        if ($tt_requests_cache === null) {
+            $sql_tt_req = "SELECT id, requested_section_ids, status, expirytime
+                           FROM {block_wdsprefs_teamteach}
+                           WHERE status = 'pending' OR status = 'approved'";
+            $tt_requests_cache = $DB->get_records_sql($sql_tt_req);
+        }
+
+        foreach ($tt_requests_cache as $req) {
+             if ($req->status == 'pending' && $req->expirytime < time()) {
+                 continue;
+             }
+
+             $req_sections = json_decode($req->requested_section_ids, true);
+             if (is_array($req_sections)) {
+                 if (array_intersect($section_ids, $req_sections)) {
+                     return false;
+                 }
+             }
+        }
+
+        return true;
+    }
 }
