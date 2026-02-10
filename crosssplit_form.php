@@ -503,26 +503,20 @@ class crosssplit_form extends moodleform {
      */
     public function get_unavailable_shell_tags($userid, $academic_period_id, array $sectionids = []) : array {
         global $DB;
-        // Scoped: only shells for the same course listing(s) and period as the assignment sections.
-        $sectionids = array_map('intval', $sectionids);
-        list($insql, $inparams) = $DB->get_in_or_equal($sectionids, SQL_PARAMS_NAMED, 'sid');
-        $params = array_merge(['academic_period_id' => $academic_period_id], $inparams);
 
-        // Get distinct course_listing_ids for the assignment sections.
-        $clquery = "SELECT DISTINCT course_listing_id
-            FROM {enrol_wds_sections}
-            WHERE academic_period_id = :academic_period_id
-            AND id " . $insql;
-        $courselistings = $DB->get_fieldset_sql($clquery, $params);
-        if (empty($courselistings)) {
+        $sectionids = array_map('intval', $sectionids);
+        if (empty($sectionids)) {
             return [];
         }
 
-        list($clsql, $clparams) = $DB->get_in_or_equal($courselistings, SQL_PARAMS_NAMED, 'clid');
-        $params = ['academic_period_id' => $academic_period_id];
-        $params = array_merge($params, $clparams);
+        list($insql, $inparams) = $DB->get_in_or_equal($sectionids, SQL_PARAMS_NAMED, 'sid');
+        $params = [
+            'userid' => $userid,
+            'academic_period_id' => $academic_period_id,
+            'academic_period_id_sub' => $academic_period_id,
+        ];
+        $params = array_merge($params, $inparams);
 
-        $params['userid'] = $userid;
         $query = "SELECT DISTINCT
             TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(cs.shell_name, '(', -1), ')', 1)) AS shell_tag
             FROM {block_wdsprefs_crosssplits} cs
@@ -530,7 +524,12 @@ class crosssplit_form extends moodleform {
             INNER JOIN {enrol_wds_sections} sec ON sec.id = css.section_id
             WHERE cs.userid = :userid
             AND sec.academic_period_id = :academic_period_id
-            AND sec.course_listing_id " . $clsql;
+            AND sec.course_listing_id IN (
+                SELECT DISTINCT sub.course_listing_id
+                FROM {enrol_wds_sections} sub
+                WHERE sub.academic_period_id = :academic_period_id_sub
+                AND sub.id " . $insql . "
+            )";
         $shelltags = $DB->get_records_sql($query, $params);
 
         $tags = array_map(function($row) {
