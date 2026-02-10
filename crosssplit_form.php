@@ -494,15 +494,12 @@ class crosssplit_form extends moodleform {
 
     /**
      * Get the unavailable shell tags for the given context.
-     *
-     * When sectionids are provided, returns tags already used by any existing crosssplit
-     * that shares at least one (academic_period_id, course_listing_id) with those sections.
-     * When sectionids are empty, returns all shell tags for the user and period (legacy behavior).
+     * Returns tags already used by any existing crosssplit
      *
      * @param int $userid User id
      * @param string $academic_period_id Academic period id
      * @param array $sectionids Section ids in the current assignment (optional)
-     * @return array Unavailable shell tags (trimmed)
+     * @return array Unavailable shell tags
      */
     public function get_unavailable_shell_tags($userid, $academic_period_id, array $sectionids = []) : array {
         global $DB;
@@ -537,8 +534,8 @@ class crosssplit_form extends moodleform {
         $shelltags = $DB->get_records_sql($query, $params);
 
         $tags = array_map(function($row) {
-            return trim($row->shell_tag);
+            return $row->shell_tag;
         }, $shelltags);
-        return array_values(array_unique($tags));
+        return $tags;
     }
 }
