@@ -35,6 +35,13 @@ class crosssplit_form extends moodleform {
 
         $mform = $this->_form;
 
+        // Hidden fields for validation (userid and academic_period_id).
+        $periodid = $this->_customdata['periodid'] ?? '';
+        $mform->addElement('hidden', 'userid', $USER->id);
+        $mform->setType('userid', PARAM_INT);
+        $mform->addElement('hidden', 'academic_period_id', $periodid);
+        $mform->setType('academic_period_id', PARAM_TEXT);
+
         // Get the secitons.
         $sectiondata = $this->_customdata['sectiondata'] ?? [];
 
@@ -81,9 +88,11 @@ class crosssplit_form extends moodleform {
             );
         }
 
+        $sectionids = array_keys($sectiondata);
         $unavailable_shell_tags = $this->get_unavailable_shell_tags(
-            $USER->id, 
-            $this->_customdata['periodid'],
+            $USER->id,
+            $periodid,
+            $sectionids
         );
         // Instructions.
         $mform->addElement('html',
@@ -424,10 +433,28 @@ class crosssplit_form extends moodleform {
      * @return array Validation errors
      */
     public function validation($data, $files) {
+        global $USER;
+
         $errors = parent::validation($data, $files);
         $shellcount = $this->_customdata['shellcount'] ?? 2;
-        
-        $unavailable_shell_tags = $this->get_unavailable_shell_tags($data['userid'], $data['academic_period_id']);
+
+        $userid = isset($data['userid']) ? (int) $data['userid'] : $USER->id;
+        $academicperiodid = isset($data['academic_period_id']) ? $data['academic_period_id'] : ($this->_customdata['periodid'] ?? '');
+
+        // Collect section IDs from submitted shell_*_data (JSON arrays).
+        $sectionids = [];
+        for ($i = 1; $i <= $shellcount; $i++) {
+            $fieldname = "shell_{$i}_data";
+            if (!empty($data[$fieldname])) {
+                $decoded = json_decode($data[$fieldname], true);
+                if (is_array($decoded)) {
+                    $sectionids = array_merge($sectionids, $decoded);
+                }
+            }
+        }
+        $sectionids = array_values(array_unique(array_map('intval', $sectionids)));
+
+        $unavailable_shell_tags = $this->get_unavailable_shell_tags($userid, $academicperiodid, $sectionids);
         $tag_by_field = [];
 
         for ($i = 1; $i <= $shellcount; $i++) {
@@ -436,7 +463,7 @@ class crosssplit_form extends moodleform {
             if ($value !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $value)) {
                 $errors[$fieldname] = get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs');
             }
-            $tag_by_field[$fieldname] = core_text::strtolower($value !== '' ? $value : "Shell $i");
+            $tag_by_field[$fieldname] = $value !== '' ? trim($value) : "Shell $i";
             if (in_array($tag_by_field[$fieldname], $unavailable_shell_tags)) {
                 $errors[$fieldname] = get_string('wdsprefs:shelltagunavailable', 'block_wdsprefs');
             }
@@ -463,27 +490,50 @@ class crosssplit_form extends moodleform {
     }
 
     /**
-     * Get the unavailable shell tags for a section.
+     * Get the unavailable shell tags for the given context.
      *
-     * @param @int $sectionid The section ID.
-     * @return @array The unavailable shell tags as an array of strings.
+     * When sectionids are provided, returns tags already used by any existing crosssplit
+     * that shares at least one (academic_period_id, course_listing_id) with those sections.
+     * When sectionids are empty, returns all shell tags for the user and period (legacy behavior).
+     *
+     * @param int $userid User id
+     * @param string $academic_period_id Academic period id
+     * @param array $sectionids Section ids in the current assignment (optional)
+     * @return array Unavailable shell tags (trimmed)
      */
-    public function get_unavailable_shell_tags($userid, $academic_period_id) : array {
+    public function get_unavailable_shell_tags($userid, $academic_period_id, array $sectionids = []) : array {
         global $DB;
+        // Scoped: only shells for the same course listing(s) and period as the assignment sections.
+        $sectionids = array_map('intval', $sectionids);
+        list($insql, $inparams) = $DB->get_in_or_equal($sectionids, SQL_PARAMS_NAMED, 'sid');
+        $params = array_merge(['academic_period_id' => $academic_period_id], $inparams);
 
-        $params = ['userid' => $userid, 'academic_period_id' => $academic_period_id];
-        // Extract shell tag from the last parentheses in shell_name
-        $query = "SELECT 
-            SUBSTRING_INDEX(SUBSTRING_INDEX(shell_name, '(', -1), ')', 1) AS shell_tag
-            -- shell_name AS shell_tag
-            FROM {block_wdsprefs_crosssplits}
-            WHERE userid = :userid
-            AND academic_period_id = :academic_period_id
-            ORDER BY shell_tag ASC";
+        // Get distinct course_listing_ids for the assignment sections.
+        $clquery = "SELECT DISTINCT course_listing_id
+            FROM {enrol_wds_sections}
+            WHERE academic_period_id = :academic_period_id
+            AND id " . $insql;
+        $courselistings = $DB->get_fieldset_sql($clquery, $params);
+        if (empty($courselistings)) {
+            return [];
+        }
+
+        list($clsql, $clparams) = $DB->get_in_or_equal($courselistings, SQL_PARAMS_NAMED, 'clid');
+        $params = ['academic_period_id' => $academic_period_id];
+        $params = array_merge($params, $clparams);
+
+        $query = "SELECT DISTINCT
+            TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(cs.shell_name, '(', -1), ')', 1)) AS shell_tag
+            FROM {block_wdsprefs_crosssplits} cs
+            INNER JOIN {block_wdsprefs_crosssplit_sections} css ON css.crosssplit_id = cs.id
+            INNER JOIN {enrol_wds_sections} sec ON sec.id = css.section_id
+            WHERE sec.academic_period_id = :academic_period_id
+            AND sec.course_listing_id " . $clsql;
         $shelltags = $DB->get_records_sql($query, $params);
-        $shelltags = array_map(function($shelltag) {
-            return $shelltag->shell_tag;
+
+        $tags = array_map(function($row) {
+            return trim($row->shell_tag);
         }, $shelltags);
-        return $shelltags;
+        return array_values(array_unique($tags));
     }
 }
