@@ -147,7 +147,8 @@ class crosssplit_form extends moodleform {
         // Shell sections (multiple boxes on right). Pass period/teacher for live preview.
         $shelltagerror = get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs');
         $shelltaguniqueerror = get_string('wdsprefs:shelltagunique', 'block_wdsprefs');
-        $mform->addElement('html', '<div class="duallist-shells" data-period="' . s($period) . '" data-teacher="' . s($teacher) . '" data-shell-tag-error="' . s($shelltagerror) . '" data-shell-tag-unique-error="' . s($shelltaguniqueerror) . '"><label>' .
+        $shelltagunavailableerror = get_string('wdsprefs:shelltagunavailable', 'block_wdsprefs');
+        $mform->addElement('html', '<div class="duallist-shells" data-period="' . s($period) . '" data-teacher="' . s($teacher) . '" data-shell-tag-error="' . s($shelltagerror) . '" data-shell-tag-unique-error="' . s($shelltaguniqueerror) . '" data-shell-tag-unavailable-error="' . s($shelltagunavailableerror) . '"><label>' .
             get_string('wdsprefs:availableshells', 'block_wdsprefs') . '</label>'
         );
 
@@ -174,9 +175,6 @@ class crosssplit_form extends moodleform {
         $mform->addElement('html', '
         <script>
         const unavailableShellTags = ' . json_encode(array_values($unavailable_shell_tags)) . ';
-        console.log(unavailableShellTags);
-        console.log("Period: ' . $this->_customdata['periodid'] . '");
-        console.log("Teacher: ' . $USER->id . '");
         document.addEventListener("DOMContentLoaded", function() {
             let activeShellId = "shell_1";
 
@@ -240,40 +238,40 @@ class crosssplit_form extends moodleform {
                 }
             }
             var uniqueErrorMsg = shellsContainer ? shellsContainer.getAttribute("data-shell-tag-unique-error") || "" : "";
-            function validateShellTagUniqueness() {
-                var tagInputs = [];
+            var unavailableErrorMsg = shellsContainer ? shellsContainer.getAttribute("data-shell-tag-unavailable-error") || "" : "";
+            var formatErrorMsg = shellsContainer ? shellsContainer.getAttribute("data-shell-tag-error") || "" : "";
+            function validateShellTags() {
+                var tags = [];
                 document.querySelectorAll(".duallist-shell").forEach(function(shellBlock) {
-                    var num = shellBlock.getAttribute("data-shell-num");
-                    var inp = shellBlock.querySelector("input[name*=\"shell_\"][name*=\"_tag\"]");
-                    if (inp && num) tagInputs.push({ num: num, input: inp });
+                    var shellNum = shellBlock.getAttribute("data-shell-num");
+                    var element = shellBlock.querySelector("input[name*=\"shell_\"][name*=\"_tag\"]");
+                    if (element && shellNum) {
+                        var value = (element.value || "").trim() || ("Shell " + shellNum);
+                        tags.push({ element: element, value: value });
+                    }
                 });
-                var fields_by_shelltag = {};
-                tagInputs.forEach(function(item) {
-                    var key = ((item.input.value || "").trim() || ("Shell " + item.num)).toLowerCase();
-                    if (!fields_by_shelltag[key]) fields_by_shelltag[key] = [];
-                    fields_by_shelltag[key].push(item.input);
+                var tagValueCounts = {};
+                tags.forEach(function(tag) {
+                    tagValueCounts[tag.value] = (tagValueCounts[tag.value] || 0) + 1;
                 });
-                tagInputs.forEach(function(item) {
-                    var key = ((item.input.value || "").trim() || ("Shell " + item.num)).toLowerCase();
-                    if (fields_by_shelltag[key].length > 1) {
-                        showShellTagError(item.input, uniqueErrorMsg);
-                    } else if (validateShellTag(item.input.value)) {
-                        hideShellTagError(item.input);
+                tags.forEach(function(tag) {
+                    if (!validateShellTag(tag.element.value)) {
+                        showShellTagError(tag.element, formatErrorMsg);
+                    } else if (unavailableShellTags && unavailableShellTags.indexOf(tag.value) !== -1) {
+                        showShellTagError(tag.element, unavailableErrorMsg);
+                    } else if (tagValueCounts[tag.value] > 1) {
+                        showShellTagError(tag.element, uniqueErrorMsg);
+                    } else {
+                        hideShellTagError(tag.element);
                     }
                 });
             }
             function bindShellTagInput(shellNum, input) {
                 if (!input || !shellNum || input.dataset.shellPreviewBound) return;
                 input.dataset.shellPreviewBound = "1";
-                var errorMsg = shellsContainer ? shellsContainer.getAttribute("data-shell-tag-error") || "" : "";
                 function onShellTagChange() {
                     updateShellPreview(shellNum, this.value);
-                    if (validateShellTag(this.value)) {
-                        hideShellTagError(this);
-                    } else {
-                        showShellTagError(this, errorMsg);
-                    }
-                    validateShellTagUniqueness();
+                    validateShellTags();
                 }
                 input.addEventListener("input", onShellTagChange);
                 input.addEventListener("change", onShellTagChange);
@@ -417,7 +415,7 @@ class crosssplit_form extends moodleform {
             if (form) {
                 form.addEventListener("submit", function(e) {
                     updateHiddenFields();
-                    validateShellTagUniqueness();
+                    validateShellTags();
                     if (document.querySelector(".shell-tag.is-invalid")) {
                         e.preventDefault();
                     }
@@ -527,12 +525,14 @@ class crosssplit_form extends moodleform {
         $params = ['academic_period_id' => $academic_period_id];
         $params = array_merge($params, $clparams);
 
+        $params['userid'] = $userid;
         $query = "SELECT DISTINCT
             TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(cs.shell_name, '(', -1), ')', 1)) AS shell_tag
             FROM {block_wdsprefs_crosssplits} cs
             INNER JOIN {block_wdsprefs_crosssplit_sections} css ON css.crosssplit_id = cs.id
             INNER JOIN {enrol_wds_sections} sec ON sec.id = css.section_id
-            WHERE sec.academic_period_id = :academic_period_id
+            WHERE cs.userid = :userid
+            AND sec.academic_period_id = :academic_period_id
             AND sec.course_listing_id " . $clsql;
         $shelltags = $DB->get_records_sql($query, $params);
 
