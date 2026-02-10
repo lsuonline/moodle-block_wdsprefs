@@ -1317,6 +1317,15 @@ class wdsprefs {
                         get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs')
                     );
                 }
+
+                // Let's truncate any stupid names.
+                $truncated = core_text::substr($customname, 0, 65);
+                if (strlen($customname) > 64) {
+                    $customname = rtrim($truncated) . '...';
+                } else {
+                    $customname = $truncated;
+                }
+
                 $shelllabel = '(' . ($customname !== '' ? $customname : "Shell $i") . ')';
                 $shellname = "$periodname $teacher $shelllabel";
 
