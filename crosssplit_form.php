@@ -148,8 +148,17 @@ class crosssplit_form extends moodleform {
         $shelltagerror = get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs');
         $shelltaguniqueerror = get_string('wdsprefs:shelltagunique', 'block_wdsprefs');
         $shelltagunavailableerror = get_string('wdsprefs:shelltagunavailable', 'block_wdsprefs');
-        $mform->addElement('html', '<div class="duallist-shells" data-period="' . s($period) . '" data-teacher="' . s($teacher) . '" data-shell-tag-error="' . s($shelltagerror) . '" data-shell-tag-unique-error="' . s($shelltaguniqueerror) . '" data-shell-tag-unavailable-error="' . s($shelltagunavailableerror) . '"><label>' .
-            get_string('wdsprefs:availableshells', 'block_wdsprefs') . '</label>'
+        $mform->addElement('html', '<div 
+            class="duallist-shells" 
+            data-period="' . s($period) . '" 
+            data-teacher="' . s($teacher) . '" 
+            data-shell-tag-error="' . s($shelltagerror) . '" 
+            data-shell-tag-unique-error="' . s($shelltaguniqueerror) . '" 
+            data-shell-tag-unavailable-error="' . s($shelltagunavailableerror) . '" 
+            data-section-ids="' . json_encode(array_keys($sectiondata)) . '">
+                <label>' .
+                    get_string('wdsprefs:availableshells', 'block_wdsprefs') . 
+                '</label>'
         );
 
         // Create the shell select boxes: text input above, preview string below, then select.
@@ -166,7 +175,13 @@ class crosssplit_form extends moodleform {
             ]);
             $mform->setType("shell_{$i}_tag", PARAM_TEXT);
             $mform->setDefault("shell_{$i}_tag", '');
-            $mform->addElement('html', '<select class="form-control shell-select" id="shell_' . $i . '" data-shell-num="' . $i . '" multiple size="2"></select></div>');
+            $mform->addElement('html', '<select 
+                class="form-control shell-select" 
+                id="shell_' . $i . '" 
+                data-shell-num="' . $i . '" 
+                multiple 
+                size="2"
+            ></select></div>');
         }
 
         $mform->addElement('html', '</div></div>');
