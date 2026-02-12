@@ -228,6 +228,33 @@
     transform-origin: center;
 }
 
+.wds.icon.fa-bread-slice {
+  position: relative;
+  display: inline-block;
+}
+
+.wds.icon.fa-bread-slice::after {
+  content: "";
+  position: absolute;
+  top: 0%;
+  bottom: 0%;
+  left: 50%;
+  width: 0;
+  background: white;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.block_wdsprefs .wds.menu-item:hover .fa-bread-slice::after {
+  animation: sliceonce 0.6s ease forwards;
+}
+
+@keyframes sliceonce {
+  0%   { width: 0; }
+  50%  { width: 17px; }
+  100% { width: 0; }
+}
+
 @keyframes compresssqueeze {
     0% {
         transform: scale(1, 1);

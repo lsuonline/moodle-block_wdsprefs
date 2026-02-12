@@ -126,12 +126,12 @@ class block_wdsprefs extends block_base {
                 'icon' => 'fa-ban'
             ];
 
-            if (is_siteadmin() || has_capability('block/wdsprefs:peelsection', context_system::instance())) {
+            if (is_siteadmin() || has_capability('block/wdsprefs:slicesection', context_system::instance())) {
                 $facultyitems[] = [
-                    'text' => get_string('wdsprefs:peel', 'block_wdsprefs'),
-                    'url' => new moodle_url('/blocks/wdsprefs/peel.php'),
+                    'text' => get_string('wdsprefs:slice', 'block_wdsprefs'),
+                    'url' => new moodle_url('/blocks/wdsprefs/slice.php'),
                     'icontype' => 'fontawesome',
-                    'icon' => 'fa-cut'
+                    'icon' => 'fa-bread-slice'
                 ];
             }
 

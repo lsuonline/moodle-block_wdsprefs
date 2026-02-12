@@ -30,23 +30,23 @@ require_login();
 
 // Check for capability.
 if (!is_siteadmin()) {
-    require_capability('block/wdsprefs:peelsection', context_system::instance());
+    require_capability('block/wdsprefs:slicesection', context_system::instance());
 }
 
-$url = new moodle_url('/blocks/wdsprefs/peel.php');
+$url = new moodle_url('/blocks/wdsprefs/slice.php');
 $PAGE->set_url($url);
 $PAGE->set_context(context_system::instance());
-$PAGE->set_title('Peel Section');
-$PAGE->set_heading('Peel Section from Course Shell');
+$PAGE->set_title('Slice Section');
+$PAGE->set_heading('Slice Section from Course Shell');
 
 echo $OUTPUT->header();
-echo $OUTPUT->heading('Peel Section from Course Shell');
+echo $OUTPUT->heading('Slice Section from Course Shell');
 
 // Get parms.
 $search_query = optional_param('search_query', '', PARAM_TEXT);
 $courseid = optional_param('courseid', 0, PARAM_INT);
 $section_ids = optional_param_array('section_ids', [], PARAM_INT);
-$peel_confirm = optional_param('peel_confirm', 0, PARAM_INT);
+$slice_confirm = optional_param('slice_confirm', 0, PARAM_INT);
 
 // Search Form.
 echo html_writer::start_tag('form', ['action' => $url, 'method' => 'get', 'class' => 'form-inline mb-4']);

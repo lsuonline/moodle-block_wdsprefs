@@ -42,7 +42,7 @@ $capabilities = [
         ],
         'clonepermissionsfrom' => 'moodle/my:manageblocks'
     ],
-    'block/wdsprefs:peelsection' => [
+    'block/wdsprefs:slicesection' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_SYSTEM,
         'archetypes' => [
