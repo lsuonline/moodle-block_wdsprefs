@@ -23,6 +23,7 @@
  */
 
 require_once("$CFG->libdir/formslib.php");
+require_once("$CFG->dirroot/blocks/wdsprefs/classes/teamteach.php");
 
 class crosssplit_form extends moodleform {
 
@@ -128,8 +129,17 @@ class crosssplit_form extends moodleform {
 
         // Loop through the sectiondata.
         foreach ($sectiondata as $value => $label) {
+
+            $ttstatus = block_wdsprefs_teamteach::check_section_status($value, $USER->id);
+            if (!$ttstatus['available']) {
+                 $label .= ' (Team Teach: ' . $ttstatus['message'] . ')';
+                 $disabled = 'disabled="disabled"';
+            } else {
+                 $disabled = '';
+            }
+
             $mform->addElement('html',
-                '<option value="' . $value . '">' .
+                '<option value="' . $value . '" ' . $disabled . '>' .
                 $label . '</option>');
         }
 

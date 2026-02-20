@@ -551,6 +551,15 @@ class wdsprefs {
     public static function create_crosssplit_shell($userid, $periodid, $sectionids, $shellname, $shellcount) {
         global $DB, $CFG;
 
+        // Require teamteach for eligibility check.
+        require_once($CFG->dirroot . '/blocks/wdsprefs/classes/teamteach.php');
+
+        // Check if any of the sections are part of a team teach request.
+        if (!block_wdsprefs_teamteach::check_shell_eligibility(0, $sectionids)) {
+            \core\notification::error(get_string('wdsprefs:section_already_teamtaught_generic', 'block_wdsprefs'));
+            return false;
+        }
+
         // Require workdaystudent for course creation functionality.
         require_once($CFG->dirroot . '/enrol/workdaystudent/classes/workdaystudent.php');
 

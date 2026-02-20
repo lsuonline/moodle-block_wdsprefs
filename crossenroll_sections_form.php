@@ -22,9 +22,11 @@
  */
 
 require_once("$CFG->libdir/formslib.php");
+require_once("$CFG->dirroot/blocks/wdsprefs/classes/teamteach.php");
 
 class crossenroll_sections_form extends moodleform {
     public function definition() {
+        global $USER;
         $mform = $this->_form;
 
         // Add the step parameter.
@@ -78,22 +80,31 @@ class crossenroll_sections_form extends moodleform {
                     }
 
                     if ($crosssplitid) {
-                         // Build the link to undo the action.
-                         $undourl = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $crosssplitid]);
-                         $undolink = html_writer::link($undourl, get_string('wdsprefs:undoaction', 'block_wdsprefs'));
 
-                         $message = get_string('wdsprefs:alreadycrosssplit', 'block_wdsprefs', $undolink);
+                        // Build the link to undo the action.
+                        $undourl = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $crosssplitid]);
+                        $undolink = html_writer::link($undourl, get_string('wdsprefs:undoaction', 'block_wdsprefs'));
 
-                         $mform->addElement('html', html_writer::span($sectionname . ' - ' . $message, 'placeholder'));
+                        $message = get_string('wdsprefs:alreadycrosssplit', 'block_wdsprefs', $undolink);
 
+                        $mform->addElement('html', html_writer::span($sectionname . ' - ' . $message, 'placeholder'));
                     } else {
-                         $mform->addElement('advcheckbox',
-                            'selectedsections['.$sectionid.']',
-                            null,
-                            $sectionname,
-                            null,
-                            [0, $sectionid]
-                        );
+
+                        // Check for team teach.
+                        $ttstatus = block_wdsprefs_teamteach::check_section_status($sectionid, $USER->id);
+
+                        if (!$ttstatus['available']) {
+                            $message = get_string('wdsprefs:section_already_teamtaught', 'block_wdsprefs', $ttstatus['message']);
+                            $mform->addElement('html', html_writer::span($sectionname . ' - ' . $message, 'placeholder'));
+                        } else {
+                            $mform->addElement('advcheckbox',
+                                'selectedsections['.$sectionid.']',
+                                null,
+                                $sectionname,
+                                null,
+                                [0, $sectionid]
+                            );
+                        }
                     }
                 }
 

@@ -242,3 +242,4 @@ $string['wdsprefs:teamteach_status_cancelled'] = 'Cancelled';
 $string['wdsprefs:teamteach_status_revoked'] = 'Revoked';
 $string['wdsprefs:section_already_crosslisted'] = 'This section is already cross-listed, split, or cross-enrolled in {$a}';
 $string['wdsprefs:section_already_teamtaught'] = 'This section is already being team-taught in {$a}';
+$string['wdsprefs:section_already_teamtaught_generic'] = 'One or more sections are already part of a team-teach request.';
