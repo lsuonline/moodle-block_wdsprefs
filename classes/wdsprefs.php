@@ -1935,11 +1935,6 @@ class wdsprefs {
         // Grab the sectionids for future use.
         $excludeids = array_keys($crosssplitsections);
 
-        // Add exclusion for team taught sections.
-        require_once($CFG->dirroot . '/blocks/wdsprefs/classes/teamteach.php');
-        $teamtaughtids = \block_wdsprefs_teamteach::get_team_taught_section_ids($USER->id);
-        $excludeids = array_merge($excludeids, $teamtaughtids);
-
         // Build SQL query to get all relevant section information.
         $sql = "SELECT sec.id AS sectionid,
            p.period_year,
@@ -2342,10 +2337,6 @@ class wdsprefs {
             $crosssplitmap[$cs->section_id] = $cs;
         }
 
-        // Add exclusion for team taught sections.
-        require_once($CFG->dirroot . '/blocks/wdsprefs/classes/teamteach.php');
-        $teamtaughtids = \block_wdsprefs_teamteach::get_team_taught_section_ids($USER->id);
-
         // Build SQL query.
         $sql = "SELECT sec.id AS sectionid,
            p.period_year,
@@ -2373,12 +2364,6 @@ class wdsprefs {
              AND p.end_date = :enddate";
 
         $parms = ['userid' => $USER->id, 'uid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date];
-
-        if (!empty($teamtaughtids)) {
-            list($insql, $inparms) = $DB->get_in_or_equal($teamtaughtids, SQL_PARAMS_NAMED, 'tt_', false);
-            $sql .= " AND sec.id " . $insql;
-            $parms = array_merge($parms, $inparms);
-        }
 
         $sql .= " GROUP BY sec.id, p.academic_period_id
            ORDER BY p.start_date ASC, c.course_subject_abbreviation ASC, c.course_number ASC, sec.section_number ASC";

@@ -127,13 +127,31 @@ class crosssplit_form extends moodleform {
             '</label><select class="form-control" id="available_sections" ' .
             'multiple size="10">');
 
+        $unavailable_links = [];
+
         // Loop through the sectiondata.
         foreach ($sectiondata as $value => $label) {
 
             $ttstatus = block_wdsprefs_teamteach::check_section_status($value, $USER->id);
             if (!$ttstatus['available']) {
-                 $label .= ' (Team Teach: ' . $ttstatus['message'] . ')';
+                 $original_label = $label;
+                 $label .= ' (' . $ttstatus['message'] . ')';
                  $disabled = 'disabled="disabled"';
+
+                 $link = '';
+                 if (!empty($ttstatus['request_id'])) {
+                     $url = new moodle_url('/blocks/wdsprefs/teamteach_sections.php', ['request_id' => $ttstatus['request_id']]);
+                     $link = html_writer::link($url, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
+                 } elseif (!empty($ttstatus['crosssplit_id'])) {
+                     $url = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $ttstatus['crosssplit_id']]);
+                     $link = html_writer::link($url, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
+                 }
+
+                 if ($link) {
+                     $unavailable_links[] = $original_label . ': ' . $ttstatus['message'] . ' ' . $link;
+                 } else {
+                     $unavailable_links[] = $original_label . ': ' . $ttstatus['message'];
+                 }
             } else {
                  $disabled = '';
             }
@@ -143,7 +161,17 @@ class crosssplit_form extends moodleform {
                 $label . '</option>');
         }
 
-        $mform->addElement('html', '</select></div>');
+        $mform->addElement('html', '</select>');
+
+        if (!empty($unavailable_links)) {
+            $mform->addElement('html', '<div class="mt-2 small text-muted"><ul>');
+            foreach ($unavailable_links as $info) {
+                $mform->addElement('html', '<li>' . $info . '</li>');
+            }
+            $mform->addElement('html', '</ul></div>');
+        }
+
+        $mform->addElement('html', '</div>');
 
         // Add the control buttons.
         $mform->addElement('html', '

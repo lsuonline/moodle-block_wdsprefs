@@ -94,8 +94,22 @@ class crossenroll_sections_form extends moodleform {
                         $ttstatus = block_wdsprefs_teamteach::check_section_status($sectionid, $USER->id);
 
                         if (!$ttstatus['available']) {
-                            $message = get_string('wdsprefs:section_already_teamtaught', 'block_wdsprefs', $ttstatus['message']);
-                            $mform->addElement('html', html_writer::span($sectionname . ' - ' . $message, 'placeholder'));
+                            $viewlink = '';
+                            if (!empty($ttstatus['request_id'])) {
+                                $viewurl = new moodle_url('/blocks/wdsprefs/teamteach_sections.php', ['request_id' => $ttstatus['request_id']]);
+                                $viewlink = ' ' . html_writer::link($viewurl, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
+                            } elseif (!empty($ttstatus['crosssplit_id'])) {
+                                $viewurl = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $ttstatus['crosssplit_id']]);
+                                $viewlink = ' ' . html_writer::link($viewurl, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
+                            }
+
+                            $mform->addElement('advcheckbox',
+                                'selectedsections['.$sectionid.']',
+                                null,
+                                $sectionname . ' (' . $ttstatus['message'] . ')' . $viewlink,
+                                ['disabled' => 'disabled'],
+                                [0, $sectionid]
+                            );
                         } else {
                             $mform->addElement('advcheckbox',
                                 'selectedsections['.$sectionid.']',

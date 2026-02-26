@@ -805,12 +805,14 @@ class block_wdsprefs_teamteach {
 
         // Check if section is cross-listed, split, or cross-enrolled.
         $cross_section = $DB->get_record('block_wdsprefs_crosssplit_sections', ['section_id' => $section_id]);
+
         if ($cross_section) {
             $crosssplit = $DB->get_record('block_wdsprefs_crosssplits', ['id' => $cross_section->crosssplit_id]);
             $shell_name = $crosssplit ? $crosssplit->shell_name : 'Unknown Shell';
             return [
                 'available' => false,
-                'message' => get_string('wdsprefs:section_already_crosslisted', 'block_wdsprefs', $shell_name)
+                'message' => get_string('wdsprefs:section_already_crosslisted', 'block_wdsprefs', $shell_name),
+                'crosssplit_id' => $cross_section->crosssplit_id
             ];
         }
 
@@ -833,7 +835,8 @@ class block_wdsprefs_teamteach {
                 $course_name = $course ? $course->fullname : 'Unknown Course';
                 return [
                     'available' => false,
-                    'message' => get_string('wdsprefs:section_already_teamtaught', 'block_wdsprefs', $course_name)
+                    'message' => get_string('wdsprefs:section_already_teamtaught', 'block_wdsprefs', $course_name),
+                    'request_id' => $request->id
                 ];
             }
         }
