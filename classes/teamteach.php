@@ -842,6 +842,41 @@ class block_wdsprefs_teamteach {
     }
 
     /**
+     * Get all section IDs involved in team teach requests (pending or approved) for a user.
+     *
+     * @param int $userid The user ID.
+     * @return array Array of section IDs.
+     */
+    public static function get_team_taught_section_ids(int $userid): array {
+        global $DB;
+
+        $sql = "SELECT requested_section_ids, status, expirytime
+                FROM {block_wdsprefs_teamteach}
+                WHERE requested_userid = :userid
+                  AND (status = 'pending' OR status = 'approved')";
+
+        $requests = $DB->get_records_sql($sql, ['userid' => $userid]);
+
+        $section_ids = [];
+        foreach ($requests as $request) {
+
+            // Ignore expired pending requests.
+            if ($request->status == 'pending' && $request->expirytime < time()) {
+                continue;
+            }
+
+            $ids = json_decode($request->requested_section_ids, true);
+            if (is_array($ids)) {
+                foreach ($ids as $id) {
+                    $section_ids[] = (int)$id;
+                }
+            }
+        }
+
+        return array_unique($section_ids);
+    }
+
+    /**
      * Check if a shell is eligible to be a target course for team teaching.
      *
      * @param int $moodle_course_id The Moodle course ID of the shell.

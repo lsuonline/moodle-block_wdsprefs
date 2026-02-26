@@ -43,7 +43,7 @@ class wdsprefs {
             return false;
         }
 
-        // Check 1: No active student enrollments in the course.
+        // No active student enrollments in the course.
         $sql = "SELECT COUNT(ue.id)
             FROM {user_enrolments} ue
                 INNER JOIN {enrol} e
@@ -69,7 +69,7 @@ class wdsprefs {
             return false;
         }
 
-        // Check 2: No grades or course materials.
+        // No grades or course materials.
         $materials = workdaystudent::wds_course_has_materials($courseid);
 
         // $materials is true if we have either materials or grades/grades history.
@@ -1908,7 +1908,7 @@ class wdsprefs {
      * @return @array Formatted array of sections grouped by course.
      */
     public static function get_sections_by_course_for_period(string $periodid): array {
-        global $USER, $DB;
+        global $CFG, $USER, $DB;
 
         // Get the user's idnumber.
         $uid = $USER->idnumber;
@@ -1934,6 +1934,11 @@ class wdsprefs {
 
         // Grab the sectionids for future use.
         $excludeids = array_keys($crosssplitsections);
+
+        // Add exclusion for team taught sections.
+        require_once($CFG->dirroot . '/blocks/wdsprefs/classes/teamteach.php');
+        $teamtaughtids = \block_wdsprefs_teamteach::get_team_taught_section_ids($USER->id);
+        $excludeids = array_merge($excludeids, $teamtaughtids);
 
         // Build SQL query to get all relevant section information.
         $sql = "SELECT sec.id AS sectionid,
@@ -2311,7 +2316,7 @@ class wdsprefs {
      * @return @array Formatted array of sections grouped by period and course.
      */
     public static function get_sections_across_periods($targetperiodid): array {
-        global $USER, $DB;
+        global $CFG, $USER, $DB;
 
         // Get the user's idnumber.
         $uid = $USER->idnumber;
@@ -2337,6 +2342,10 @@ class wdsprefs {
             $crosssplitmap[$cs->section_id] = $cs;
         }
 
+        // Add exclusion for team taught sections.
+        require_once($CFG->dirroot . '/blocks/wdsprefs/classes/teamteach.php');
+        $teamtaughtids = \block_wdsprefs_teamteach::get_team_taught_section_ids($USER->id);
+
         // Build SQL query.
         $sql = "SELECT sec.id AS sectionid,
            p.period_year,
@@ -2361,11 +2370,18 @@ class wdsprefs {
              AND t.userid = :userid
              AND tenr.universal_id = :uid
              AND p.start_date = :startdate
-             AND p.end_date = :enddate
-           GROUP BY sec.id, p.academic_period_id
-           ORDER BY p.start_date ASC, c.course_subject_abbreviation ASC, c.course_number ASC, sec.section_number ASC";
+             AND p.end_date = :enddate";
 
         $parms = ['userid' => $USER->id, 'uid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date];
+
+        if (!empty($teamtaughtids)) {
+            list($insql, $inparms) = $DB->get_in_or_equal($teamtaughtids, SQL_PARAMS_NAMED, 'tt_', false);
+            $sql .= " AND sec.id " . $insql;
+            $parms = array_merge($parms, $inparms);
+        }
+
+        $sql .= " GROUP BY sec.id, p.academic_period_id
+           ORDER BY p.start_date ASC, c.course_subject_abbreviation ASC, c.course_number ASC, sec.section_number ASC";
 
         $records = $DB->get_records_sql($sql, $parms);
 
