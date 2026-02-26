@@ -951,4 +951,27 @@ class block_wdsprefs_teamteach {
 
         return true;
     }
+
+    /**
+     * Get all requests (pending and approved) where the user is either the requester or the requested teacher.
+     *
+     * @param int $userid
+     * @return array
+     */
+    public static function get_all_requests_for_user(int $userid): array {
+        global $DB;
+
+        $sql = "SELECT *
+                FROM {block_wdsprefs_teamteach}
+                WHERE (requester_userid = :userid1 OR requested_userid = :userid2)
+                  AND (status = 'pending' OR status = 'approved')
+                ORDER BY timecreated DESC";
+
+        $params = [
+            'userid1' => $userid,
+            'userid2' => $userid
+        ];
+
+        return $DB->get_records_sql($sql, $params);
+    }
 }
