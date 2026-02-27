@@ -200,31 +200,34 @@ foreach ($my_courses as $period_id => $period_sections) {
     }
 }
 
-// Filter shells based on eligibility.
+// Build shells list: include all potential shells; mark eligible vs ineligible (show ineligible with disclaimer, disabled).
+$shell_disclaimer = get_string('wdsprefs:shell_disclaimer_teamtaught', 'block_wdsprefs');
 foreach ($potential_shells as $moodle_courseid => $shell_data) {
-    if (block_wdsprefs_teamteach::check_shell_eligibility($moodle_courseid, $shell_data['section_ids'])) {
-        $shells[$moodle_courseid] = [
-            'id' => $shell_data['id'],
-            'fullname' => $shell_data['fullname'],
-            'period_id' => $shell_data['period_id']
-        ];
-    }
+    $eligible = block_wdsprefs_teamteach::check_shell_eligibility($moodle_courseid, $shell_data['section_ids']);
+    $shells[$moodle_courseid] = [
+        'id' => $shell_data['id'],
+        'fullname' => $shell_data['fullname'],
+        'period_id' => $shell_data['period_id'],
+        'eligible' => $eligible,
+    ];
 }
 
-// Process Request.
+// Process Request (only allow eligible target courses).
 if ($send_request && $target_course_id && $selected_teacher_id && !empty($section_ids)) {
     require_sesskey();
-
-    $request_id = block_wdsprefs_teamteach::create_request($USER->id, $target_course_id, $selected_teacher_id, $section_ids);
-
-    if ($request_id) {
-        echo $OUTPUT->notification(get_string('wdsprefs:teamteach_request_created', 'block_wdsprefs'), 'success');
-        // Link back to start.
-        echo $OUTPUT->continue_button(new moodle_url('/blocks/wdsprefs/teamteach.php'));
-        echo $OUTPUT->footer();
-        exit;
-    } else {
+    if (empty($shells[$target_course_id]['eligible'])) {
         echo $OUTPUT->notification(get_string('wdsprefs:teamteach_request_failed', 'block_wdsprefs'), 'error');
+    } else {
+        $request_id = block_wdsprefs_teamteach::create_request($USER->id, $target_course_id, $selected_teacher_id, $section_ids);
+
+        if ($request_id) {
+            echo $OUTPUT->notification(get_string('wdsprefs:teamteach_request_created', 'block_wdsprefs'), 'success');
+            echo $OUTPUT->continue_button(new moodle_url('/blocks/wdsprefs/teamteach.php'));
+            echo $OUTPUT->footer();
+            exit;
+        } else {
+            echo $OUTPUT->notification(get_string('wdsprefs:teamteach_request_failed', 'block_wdsprefs'), 'error');
+        }
     }
 }
 
@@ -232,18 +235,29 @@ if ($send_request && $target_course_id && $selected_teacher_id && !empty($sectio
 echo html_writer::start_tag('form', ['action' => $url, 'method' => 'post']);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
 
-// Target Course Dropdown.
-$options = ['' => get_string('wdsprefs:teamteach_select_target_course', 'block_wdsprefs')];
-foreach ($shells as $shell) {
-    $options[$shell['id']] = $shell['fullname'];
-}
-
+// Target Course Dropdown: show all shells; ineligible (e.g. team-taught) as disabled with disclaimer.
 echo html_writer::label(get_string('wdsprefs:teamteach_target_course', 'block_wdsprefs'), 'target_course_id');
-echo html_writer::select($options, 'target_course_id', $target_course_id, null, ['class' => 'form-control', 'onchange' => 'this.form.submit()']);
+echo html_writer::start_tag('select', [
+    'name' => 'target_course_id',
+    'id' => 'target_course_id',
+    'class' => 'form-control',
+    'onchange' => 'this.form.submit()'
+]);
+echo html_writer::tag('option', get_string('wdsprefs:teamteach_select_target_course', 'block_wdsprefs'), ['value' => '']);
+foreach ($shells as $shell) {
+    $label = s($shell['fullname']);
+    if (empty($shell['eligible'])) {
+        $label .= ' (' . $shell_disclaimer . ')';
+        echo html_writer::tag('option', $label, ['value' => $shell['id'], 'disabled' => 'disabled']);
+    } else {
+        echo html_writer::tag('option', $label, ['value' => $shell['id']]);
+    }
+}
+echo html_writer::end_tag('select');
 echo html_writer::empty_tag('br');
 
-// Search Teacher.
-if ($target_course_id) {
+// Search Teacher (only when an eligible shell is selected).
+if ($target_course_id && isset($shells[$target_course_id]) && !empty($shells[$target_course_id]['eligible'])) {
 
     // Show search box.
     echo html_writer::tag('h4', get_string('wdsprefs:teamteach_search_teacher', 'block_wdsprefs'));

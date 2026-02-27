@@ -29,9 +29,6 @@ require('../../config.php');
 // Get the main wdsprefs class.
 require_once("$CFG->dirroot/blocks/wdsprefs/classes/wdsprefs.php");
 
-// Get the tt class.
-require_once("$CFG->dirroot/blocks/wdsprefs/classes/teamteach.php");
-
 // Include the form class definitions.
 require_once("$CFG->dirroot/blocks/wdsprefs/crossenroll_period_form.php");
 require_once("$CFG->dirroot/blocks/wdsprefs/crossenroll_sections_form.php");
@@ -134,12 +131,24 @@ if ($step == 'period') {
         redirect(new moodle_url('/blocks/wdsprefs/crossenroll.php'));
     } else if ($data = $form2->get_data()) {
 
-        // Filter selected sections.
+        // Filter selected sections: only allow sections that are selectable (not already crosssplit, not team-taught).
         $selected = [];
         if (!empty($data->selectedsections) && is_array($data->selectedsections)) {
-            $selected = array_filter($data->selectedsections);
-
-            // Re-assign to object property for processing.
+            $selectableids = [];
+            foreach ($sectionsbyperiod as $courses) {
+                foreach ($courses as $sections) {
+                    foreach ($sections as $sectionid => $sectiondata) {
+                        if (is_object($sectiondata) && empty($sectiondata->crosssplit_id) && empty($sectiondata->is_teamtaught)) {
+                            $selectableids[$sectionid] = true;
+                        }
+                    }
+                }
+            }
+            foreach (array_filter($data->selectedsections) as $sectionid) {
+                if (!empty($selectableids[$sectionid])) {
+                    $selected[] = $sectionid;
+                }
+            }
             $data->selectedsections = array_values($selected);
         }
 
@@ -260,65 +269,6 @@ if ($step == 'period') {
             $table->data[] = $row;
         }
 
-        echo html_writer::table($table);
-    }
-
-    // Display existing team taught shells.
-    $teamteachrequests = block_wdsprefs_teamteach::get_all_requests_for_user($USER->id);
-
-    if (!empty($teamteachrequests)) {
-        echo html_writer::tag('h3', 'Existing Team-taught Shells');
-
-        $table = new html_table();
-        $table->head = [
-            get_string('wdsprefs:shellname', 'block_wdsprefs'),
-            get_string('wdsprefs:period', 'block_wdsprefs'),
-            get_string('wdsprefs:status', 'block_wdsprefs'),
-            get_string('wdsprefs:datecreated', 'block_wdsprefs'),
-            get_string('wdsprefs:actions', 'block_wdsprefs')
-        ];
-
-        foreach ($teamteachrequests as $request) {
-            $course = $DB->get_record('course', ['id' => $request->target_course_id]);
-            $displayname = $course ? $course->fullname : 'Unknown Course';
-
-            $periodname = '';
-            $section_ids = json_decode($request->requested_section_ids);
-            if (!empty($section_ids)) {
-                $first_section_id = reset($section_ids);
-                $section = $DB->get_record('enrol_wds_sections', ['id' => $first_section_id]);
-                if ($section) {
-                    $pname = wdsprefs::get_current_taught_periods($section->academic_period_id);
-                    if (is_array($pname)) {
-                        $periodname = reset($pname);
-                    }
-                }
-            }
-
-            $row = [];
-            $row[] = $displayname;
-            $row[] = $periodname;
-
-            $status_string = ucfirst($request->status);
-            $status_key = 'wdsprefs:teamteach_status_' . $request->status;
-            if (get_string_manager()->string_exists($status_key, 'block_wdsprefs')) {
-                $status_string = get_string($status_key, 'block_wdsprefs');
-            }
-            $row[] = $status_string;
-            $row[] = userdate($request->timecreated);
-
-            $actions = '';
-            if ($course && $request->status == 'approved') {
-                $courseurl = new moodle_url('/course/view.php', ['id' => $course->id]);
-                $actions .= html_writer::link($courseurl, get_string('wdsprefs:viewcourse', 'block_wdsprefs'), ['class' => 'btn btn-sm btn-primary', 'target' => '_blank']);
-            }
-
-            $sectionsurl = new moodle_url('/blocks/wdsprefs/teamteach_sections.php', ['request_id' => $request->id]);
-            $actions .= ' ' . html_writer::link($sectionsurl, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['class' => 'btn btn-sm btn-secondary']);
-
-            $row[] = $actions;
-            $table->data[] = $row;
-        }
         echo html_writer::table($table);
     }
 }

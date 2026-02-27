@@ -18,7 +18,6 @@
  * @package    block_wdsprefs
  * @copyright  2025 onwards Louisiana State University
  * @copyright  2025 onwards Robert Russo
- * @copyright  2026 onwards Steve Mattsen
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -43,7 +42,7 @@ class wdsprefs {
             return false;
         }
 
-        // No active student enrollments in the course.
+        // Check 1: No active student enrollments in the course.
         $sql = "SELECT COUNT(ue.id)
             FROM {user_enrolments} ue
                 INNER JOIN {enrol} e
@@ -69,7 +68,7 @@ class wdsprefs {
             return false;
         }
 
-        // No grades or course materials.
+        // Check 2: No grades or course materials.
         $materials = workdaystudent::wds_course_has_materials($courseid);
 
         // $materials is true if we have either materials or grades/grades history.
@@ -550,15 +549,6 @@ class wdsprefs {
      */
     public static function create_crosssplit_shell($userid, $periodid, $sectionids, $shellname, $shellcount) {
         global $DB, $CFG;
-
-        // Require teamteach for eligibility check.
-        require_once($CFG->dirroot . '/blocks/wdsprefs/classes/teamteach.php');
-
-        // Check if any of the sections are part of a team teach request.
-        if (!block_wdsprefs_teamteach::check_shell_eligibility(0, $sectionids)) {
-            \core\notification::error(get_string('wdsprefs:section_already_teamtaught_generic', 'block_wdsprefs'));
-            return false;
-        }
 
         // Require workdaystudent for course creation functionality.
         require_once($CFG->dirroot . '/enrol/workdaystudent/classes/workdaystudent.php');
@@ -1321,7 +1311,7 @@ class wdsprefs {
                 } elseif (is_array($data) && isset($data[$shellnamefield])) {
                     $customname = trim($data[$shellnamefield]);
                 }
-                $customname = core_text::substr($customname, 0, 64);
+
                 if ($customname !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $customname)) {
                     throw new \core\exception\invalid_parameter_exception(
                         get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs')
@@ -1908,7 +1898,7 @@ class wdsprefs {
      * @return @array Formatted array of sections grouped by course.
      */
     public static function get_sections_by_course_for_period(string $periodid): array {
-        global $CFG, $USER, $DB;
+        global $USER, $DB;
 
         // Get the user's idnumber.
         $uid = $USER->idnumber;
@@ -1920,22 +1910,8 @@ class wdsprefs {
             'periodid' => $periodid
         ];
 
-        // Get all sections that are already part of crosssplits.
-        $crosssplitsql = "SELECT DISTINCT(section_id)
-            FROM {block_wdsprefs_crosssplits} cs
-            INNER JOIN {block_wdsprefs_crosssplit_sections} css
-                ON cs.id = css.crosssplit_id
-               #AND cs.academic_period_id = :periodid
-                AND cs.userid = :userid
-                AND cs.universal_id = :uid";
-
-        // Get the data.
-        $crosssplitsections = $DB->get_records_sql($crosssplitsql, $parms);
-
-        // Grab the sectionids for future use.
-        $excludeids = array_keys($crosssplitsections);
-
-        // Build SQL query to get all relevant section information.
+        // Build SQL query to get all relevant section information (include all sections;
+        // non-selectable ones are marked via get_section_selectability_for_period and shown disabled in UI).
         $sql = "SELECT sec.id AS sectionid,
            p.period_year,
            p.period_type,
@@ -1960,14 +1936,7 @@ class wdsprefs {
              AND t.userid = :userid
              AND sec.academic_period_id = :periodid";
 
-        // Add condition to exclude already crosssplit sections if we have any.
-        if (!empty($excludeids)) {
-            list($insql, $inparms) = $DB->get_in_or_equal($excludeids, SQL_PARAMS_NAMED, 'exclude_', false);
-            $sql .= " AND sec.id " . $insql;
-            $parms = array_merge(['uid' => $uid, 'userid' => $USER->id, 'periodid' => $periodid], $inparms);
-        } else {
-            $parms = ['uid' => $uid, 'userid' => $USER->id, 'periodid' => $periodid];
-        }
+        $parms = ['uid' => $uid, 'userid' => $USER->id, 'periodid' => $periodid];
 
         $sql .= " GROUP BY sec.id
             ORDER BY sec.section_listing_id ASC";
@@ -2005,6 +1974,72 @@ class wdsprefs {
        }
 
        return $formatteddata;
+    }
+
+    /**
+     * Returns which sections in the period are non-selectable for cross-split (already crosssplit or team-taught).
+     *
+     * @param string $periodid Academic period ID.
+     * @return array [ sectionid => [ 'selectable' => bool, 'reason' => 'crosssplit'|'teamtaught'|'' ], ... ]
+     */
+    public static function get_section_selectability_for_period(string $periodid): array {
+        global $USER, $DB;
+
+        $uid = $USER->idnumber;
+        $parms = ['userid' => $USER->id, 'uid' => $uid, 'periodid' => $periodid];
+
+        $sql = "SELECT sec.id
+            FROM {enrol_wds_periods} p
+            INNER JOIN {enrol_wds_sections} sec ON sec.academic_period_id = p.academic_period_id
+            INNER JOIN {enrol_wds_courses} c ON c.course_listing_id = sec.course_listing_id
+            INNER JOIN {enrol_wds_teacher_enroll} tenr ON tenr.section_listing_id = sec.section_listing_id
+            INNER JOIN {enrol_wds_teachers} t ON t.universal_id = tenr.universal_id
+            WHERE tenr.universal_id = :uid
+              AND t.userid = :userid
+              AND sec.academic_period_id = :periodid
+            GROUP BY sec.id";
+        $allsectionids = array_keys($DB->get_records_sql($sql, $parms));
+        if (empty($allsectionids)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($allsectionids as $sid) {
+            $result[$sid] = ['selectable' => true, 'reason' => ''];
+        }
+
+        // Sections already in a crosssplit for this user.
+        list($insql, $inparms) = $DB->get_in_or_equal($allsectionids, SQL_PARAMS_NAMED, 'sid_');
+        $crosssplitsql = "SELECT DISTINCT css.section_id
+            FROM {block_wdsprefs_crosssplits} cs
+            INNER JOIN {block_wdsprefs_crosssplit_sections} css ON cs.id = css.crosssplit_id
+            WHERE cs.userid = :userid AND cs.universal_id = :uid AND css.section_id " . $insql;
+        $csparms = array_merge(['userid' => $USER->id, 'uid' => $uid], $inparms);
+        $crosssplitsections = $DB->get_records_sql($crosssplitsql, $csparms);
+        foreach (array_keys($crosssplitsections) as $sectionid) {
+            $result[$sectionid] = ['selectable' => false, 'reason' => 'crosssplit'];
+        }
+
+        // Sections involved in a team-teach request (pending or approved, non-expired).
+        $ttsql = "SELECT id, requested_section_ids, status, expirytime
+            FROM {block_wdsprefs_teamteach}
+            WHERE requested_userid = :userid AND (status = 'pending' OR status = 'approved')";
+        $requests = $DB->get_records_sql($ttsql, ['userid' => $USER->id]);
+        foreach ($requests as $req) {
+            if ($req->status === 'pending' && !empty($req->expirytime) && $req->expirytime < time()) {
+                continue;
+            }
+            $sids = json_decode($req->requested_section_ids, true);
+            if (is_array($sids)) {
+                foreach ($sids as $sid) {
+                    if (isset($result[$sid])) {
+                        $result[$sid] = ['selectable' => false, 'reason' => 'teamtaught'];
+                    }
+                }
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -2311,7 +2346,7 @@ class wdsprefs {
      * @return @array Formatted array of sections grouped by period and course.
      */
     public static function get_sections_across_periods($targetperiodid): array {
-        global $CFG, $USER, $DB;
+        global $USER, $DB;
 
         // Get the user's idnumber.
         $uid = $USER->idnumber;
@@ -2361,12 +2396,11 @@ class wdsprefs {
              AND t.userid = :userid
              AND tenr.universal_id = :uid
              AND p.start_date = :startdate
-             AND p.end_date = :enddate";
+             AND p.end_date = :enddate
+           GROUP BY sec.id, p.academic_period_id
+           ORDER BY p.start_date ASC, c.course_subject_abbreviation ASC, c.course_number ASC, sec.section_number ASC";
 
         $parms = ['userid' => $USER->id, 'uid' => $uid, 'startdate' => $targetperiod->start_date, 'enddate' => $targetperiod->end_date];
-
-        $sql .= " GROUP BY sec.id, p.academic_period_id
-           ORDER BY p.start_date ASC, c.course_subject_abbreviation ASC, c.course_number ASC, sec.section_number ASC";
 
         $records = $DB->get_records_sql($sql, $parms);
 
@@ -2396,6 +2430,7 @@ class wdsprefs {
            $sectiondata->id = $record->sectionid;
            $sectiondata->crosssplit_id = null;
            $sectiondata->moodle_course_id = null;
+           $sectiondata->is_teamtaught = false;
 
            if (isset($crosssplitmap[$record->sectionid])) {
                $sectiondata->crosssplit_id = $crosssplitmap[$record->sectionid]->crosssplit_id;
@@ -2403,6 +2438,33 @@ class wdsprefs {
            }
 
            $formatteddata[$periodname][$coursekey][$record->sectionid] = $sectiondata;
+        }
+
+        // Batch-mark sections that are team-taught (pending or approved request for this user).
+        $ttsql = "SELECT id, requested_section_ids, status, expirytime
+            FROM {block_wdsprefs_teamteach}
+            WHERE requested_userid = :userid AND (status = 'pending' OR status = 'approved')";
+        $ttrequests = $DB->get_records_sql($ttsql, ['userid' => $USER->id]);
+        $teamtaughtsectionids = [];
+        foreach ($ttrequests as $req) {
+            if ($req->status === 'pending' && !empty($req->expirytime) && $req->expirytime < time()) {
+                continue;
+            }
+            $sids = json_decode($req->requested_section_ids, true);
+            if (is_array($sids)) {
+                foreach ($sids as $sid) {
+                    $teamtaughtsectionids[$sid] = true;
+                }
+            }
+        }
+        foreach ($formatteddata as $periodname => $courses) {
+            foreach ($courses as $coursekey => $sections) {
+                foreach ($sections as $sectionid => $sectiondata) {
+                    if (!empty($teamtaughtsectionids[$sectionid])) {
+                        $sectiondata->is_teamtaught = true;
+                    }
+                }
+            }
         }
 
         return $formatteddata;

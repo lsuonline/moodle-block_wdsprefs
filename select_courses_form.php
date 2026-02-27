@@ -31,57 +31,67 @@ class select_courses_form extends moodleform {
         $this->_form->addElement('hidden', 'step', 'course');
         $this->_form->setType('step', PARAM_TEXT);
 
-        // Get the sections for this period.
+        // Get the sections for this period and selectability (team-taught / already crosssplit).
         $sectionsbycourse = $this->_customdata['sectionsbycourse'] ?? [];
+        $selectability = $this->_customdata['selectability'] ?? [];
 
-        // Get the count of sections.
-        $sectioncount = array_sum(array_map('count', $sectionsbycourse));
+        // Count selectable sections (for shellcount max); show all courses but disable those with no selectable sections.
+        $totalselectable = 0;
+        foreach ($sectionsbycourse as $sections) {
+            foreach (array_keys($sections) as $sectionid) {
+                if (!empty($selectability[$sectionid]['selectable'])) {
+                    $totalselectable++;
+                }
+            }
+        }
 
-        // Get the courses.
-        $courses = array_keys($sectionsbycourse);
-
-        // Add the header.
         $mform->addElement('header',
             'wdsprefs:selectcoursesheader',
             get_string('wdsprefs:selectcoursesheader', 'block_wdsprefs'));
 
-        // Instructions.
         $mform->addElement('html',
             '<div class="alert alert-info"><p>' .
             get_string('wdsprefs:crosssplitinstructions2', 'block_wdsprefs') .
             '</p></div>'
         );
 
-
-        // Add checkboxes for course selection.
         foreach ($sectionsbycourse as $coursename => $sections) {
-
-            // Get the section count for this course.
             $scount = count($sections);
+            $selectablecount = 0;
+            foreach (array_keys($sections) as $sectionid) {
+                if (!empty($selectability[$sectionid]['selectable'])) {
+                    $selectablecount++;
+                }
+            }
+            $allnonselectable = ($selectablecount === 0);
 
-            // Handle pluralization manually.
             $sectionslabel = $scount == 1 ?
                 ' (' . $scount . ' ' . get_string('wdsprefs:section', 'block_wdsprefs') . ')' :
                 ' (' . $scount . ' ' . get_string('wdsprefs:sections', 'block_wdsprefs') . ')';
 
-
-            // Sanitize course name.
             $sanitized = str_replace([' ', '/'], ['_', '-'], $coursename);
 
-            // Add the form items.
-            $mform->addElement('advcheckbox', 'selectedcourses_' .
-                $sanitized,
-                '',
-                $coursename .
-                $sectionslabel
-            );
+            if ($allnonselectable) {
+                $disclaimer = get_string('wdsprefs:course_disclaimer_teamtaught_crosssplit', 'block_wdsprefs');
+                $mform->addElement('advcheckbox', 'selectedcourses_' . $sanitized,
+                    '',
+                    $coursename . $sectionslabel . ' <span class="text-muted">(' . $disclaimer . ')</span>',
+                    ['disabled' => 'disabled']
+                );
+                $mform->setDefault('selectedcourses_' . $sanitized, 0);
+            } else {
+                $mform->addElement('advcheckbox', 'selectedcourses_' . $sanitized,
+                    '',
+                    $coursename . $sectionslabel
+                );
+            }
         }
 
-        // Add the form item for the number of course shells dropdown.
+        $maxshells = max(1, $totalselectable);
         $mform->addElement('select',
             'shellcount',
             get_string('wdsprefs:shellcount', 'block_wdsprefs'),
-            array_combine(range(1, $sectioncount), range(1, $sectioncount)));
+            array_combine(range(1, $maxshells), range(1, $maxshells)));
 
         // Set the default.
         $mform->setDefault('shellcount', 1);

@@ -25,7 +25,6 @@
  * @package    block_wdsprefs
  * @copyright  2025 onwards Louisiana State University
  * @copyright  2025 onwards Robert Russo
- * @copyright  2026 onwards Steve Mattsen
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -34,9 +33,6 @@ require('../../config.php');
 
 // Get the main wdsprefs class.
 require_once("$CFG->dirroot/blocks/wdsprefs/classes/wdsprefs.php");
-
-// Get the TT class.
-require_once("$CFG->dirroot/blocks/wdsprefs/classes/teamteach.php");
 
 // Include the form class definitions.
 require_once("$CFG->dirroot/blocks/wdsprefs/select_period_form.php");
@@ -113,8 +109,18 @@ if ($step == 'period') {
                 }
             }
 
-            // Check if there are any sections available for cross-splitting.
-            if (empty($sectionsbycourse) || (!$hasmultipleentries && $seccoursecount < 2)) {
+            $selectability = wdsprefs::get_section_selectability_for_period($data->periodid);
+            $selectablecount = 0;
+            foreach ($sectionsbycourse as $sections) {
+                foreach (array_keys($sections) as $sectionid) {
+                    if (!empty($selectability[$sectionid]['selectable'])) {
+                        $selectablecount++;
+                    }
+                }
+            }
+
+            // Check if there are any sections available for cross-splitting (at least one selectable).
+            if (empty($sectionsbycourse) || (!$hasmultipleentries && $seccoursecount < 2) || $selectablecount < 1) {
                 echo $OUTPUT->notification(
                     get_string('wdsprefs:nosectionsavailable', 'block_wdsprefs'),
                     \core\output\notification::NOTIFY_INFO);
@@ -122,9 +128,10 @@ if ($step == 'period') {
                 exit;
             }
 
-            // Store selection data in session for next step.
+            // Store selection data and section selectability (for showing disabled team-taught/crosssplit) in session.
             $SESSION->wdsprefs_periodid = $data->periodid;
             $SESSION->wdsprefs_sectionsbycourse = $sectionsbycourse;
+            $SESSION->wdsprefs_section_selectability = $selectability;
 
             // Redirect to step 2.
             redirect(new moodle_url('/blocks/wdsprefs/crosssplit.php',
@@ -140,13 +147,17 @@ if ($step == 'period') {
 
     // Set this from the session.
     $sectionsbycourse = $SESSION->wdsprefs_sectionsbycourse;
-    $periodid =  $SESSION->wdsprefs_periodid;
+    $periodid = $SESSION->wdsprefs_periodid;
+    $selectability = $SESSION->wdsprefs_section_selectability ?? [];
 
     // Get the full period info for building shell names.
     $period = wdsprefs::get_period_from_id($periodid);
 
-    // Initialize the first form with course data.
-    $form2 = new select_courses_form($actionurl, ['sectionsbycourse' => $sectionsbycourse]);
+    // Initialize the first form with course data and selectability (for disabled + disclaimer).
+    $form2 = new select_courses_form($actionurl, [
+        'sectionsbycourse' => $sectionsbycourse,
+        'selectability' => $selectability,
+    ]);
 
     // Handle form cancellation.
     if ($form2->is_cancelled()) {
@@ -170,18 +181,30 @@ if ($step == 'period') {
             }
         }
 
-        // Collect all sections from selected courses.
+        // Collect all sections from selected courses with selectable/reason for UI (show disabled with disclaimer).
         $sectiondata = [];
-
-        // Loop through the form data.
+        $selectability = $SESSION->wdsprefs_section_selectability ?? [];
         foreach ($selected as $coursename) {
-            if (isset($sectionsbycourse[$coursename])) {
-                $sectiondata += $sectionsbycourse[$coursename];
+            if (!isset($sectionsbycourse[$coursename])) {
+                continue;
+            }
+            foreach ($sectionsbycourse[$coursename] as $sectionid => $label) {
+                $sel = $selectability[$sectionid] ?? ['selectable' => true, 'reason' => ''];
+                $sectiondata[$sectionid] = [
+                    'label' => $label,
+                    'selectable' => !empty($sel['selectable']),
+                    'reason' => $sel['reason'] ?? '',
+                ];
             }
         }
 
-        // Verify at least two sections are selected (required for cross-splitting).
-        if (count($sectiondata) < 1) {
+        $selectablecount = 0;
+        foreach ($sectiondata as $item) {
+            if (!empty($item['selectable'])) {
+                $selectablecount++;
+            }
+        }
+        if ($selectablecount < 1) {
             echo $OUTPUT->notification(get_string('wdsprefs:atleastonesection',
                 'block_wdsprefs'), \core\output\notification::NOTIFY_WARNING);
             $form2->display();
@@ -189,7 +212,6 @@ if ($step == 'period') {
             exit;
         }
 
-        // Store selection data in session for next step.
         $SESSION->wdsprefs_prefixinfo = $sectiondata;
         $SESSION->wdsprefs_suffixinfo = $sectiondata;
         $SESSION->wdsprefs_sectiondata = $sectiondata;
@@ -229,7 +251,6 @@ if ($step == 'period') {
     // Initialize the second form with section data.
     $form3 = new crosssplit_form($actionurl, [
         'period' => $periodname,
-        'periodid' => $periodid,
         'teacher' => $teachername,
         'sectiondata' => $sectiondata,
         'shellcount' => $shellcount,
@@ -240,19 +261,38 @@ if ($step == 'period') {
     $cancelled = $form3->is_cancelled();
 
     // Handle form cancellation.
-    if ($cancelled) {
+        if ($cancelled) {
 
         // Clear session data to avoid stale data on restart.
         unset($SESSION->wdsprefs_sectiondata);
         unset($SESSION->wdsprefs_shellcount);
         unset($SESSION->wdsprefs_periodid);
+        unset($SESSION->wdsprefs_section_selectability);
 
         redirect(new moodle_url('/blocks/wdsprefs/crosssplit.php'));
     }
 
     // Process form submission.
     if (!is_null($data)) {
-        // Process the cross-splitting
+        // Only allow section IDs that are selectable (exclude team-taught / already crosssplit).
+        $selectableids = [];
+        foreach ($sectiondata as $sectionid => $item) {
+            if (is_array($item) && !empty($item['selectable'])) {
+                $selectableids[$sectionid] = true;
+            }
+        }
+        for ($i = 1; $i <= $shellcount; $i++) {
+            $fieldname = "shell_{$i}_data";
+            if (!empty($data->$fieldname)) {
+                $decoded = json_decode($data->$fieldname, true);
+                if (is_array($decoded)) {
+                    $filtered = array_values(array_filter($decoded, function ($id) use ($selectableids) {
+                        return isset($selectableids[$id]);
+                    }));
+                    $data->$fieldname = json_encode($filtered);
+                }
+            }
+        }
         $results = wdsprefs::process_crosssplit_form($data, $period, $teachername, $shellcount);
 
         // Check if we have results
@@ -380,65 +420,6 @@ if ($step == 'period') {
             $table->data[] = $row;
         }
 
-        echo html_writer::table($table);
-    }
-
-    // Display existing team taught shells.
-    $teamteachrequests = block_wdsprefs_teamteach::get_all_requests_for_user($USER->id);
-
-    if (!empty($teamteachrequests)) {
-        echo html_writer::tag('h3', 'Existing Team-taught Shells');
-
-        $table = new html_table();
-        $table->head = [
-            get_string('wdsprefs:shellname', 'block_wdsprefs'),
-            get_string('wdsprefs:period', 'block_wdsprefs'),
-            get_string('wdsprefs:status', 'block_wdsprefs'),
-            get_string('wdsprefs:datecreated', 'block_wdsprefs'),
-            get_string('wdsprefs:actions', 'block_wdsprefs')
-        ];
-
-        foreach ($teamteachrequests as $request) {
-            $course = $DB->get_record('course', ['id' => $request->target_course_id]);
-            $displayname = $course ? $course->fullname : 'Unknown Course';
-
-            $periodname = '';
-            $section_ids = json_decode($request->requested_section_ids);
-            if (!empty($section_ids)) {
-                $first_section_id = reset($section_ids);
-                $section = $DB->get_record('enrol_wds_sections', ['id' => $first_section_id]);
-                if ($section) {
-                    $pname = wdsprefs::get_current_taught_periods($section->academic_period_id);
-                    if (is_array($pname)) {
-                        $periodname = reset($pname);
-                    }
-                }
-            }
-
-            $row = [];
-            $row[] = $displayname;
-            $row[] = $periodname;
-
-            $status_string = ucfirst($request->status);
-            $status_key = 'wdsprefs:teamteach_status_' . $request->status;
-            if (get_string_manager()->string_exists($status_key, 'block_wdsprefs')) {
-                $status_string = get_string($status_key, 'block_wdsprefs');
-            }
-            $row[] = $status_string;
-            $row[] = userdate($request->timecreated);
-
-            $actions = '';
-            if ($course && $request->status == 'approved') {
-                $courseurl = new moodle_url('/course/view.php', ['id' => $course->id]);
-                $actions .= html_writer::link($courseurl, get_string('wdsprefs:viewcourse', 'block_wdsprefs'), ['class' => 'btn btn-sm btn-primary', 'target' => '_blank']);
-            }
-
-            $sectionsurl = new moodle_url('/blocks/wdsprefs/teamteach_sections.php', ['request_id' => $request->id]);
-            $actions .= ' ' . html_writer::link($sectionsurl, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['class' => 'btn btn-sm btn-secondary']);
-
-            $row[] = $actions;
-            $table->data[] = $row;
-        }
         echo html_writer::table($table);
     }
 }

@@ -22,11 +22,9 @@
  */
 
 require_once("$CFG->libdir/formslib.php");
-require_once("$CFG->dirroot/blocks/wdsprefs/classes/teamteach.php");
 
 class crossenroll_sections_form extends moodleform {
     public function definition() {
-        global $USER;
         $mform = $this->_form;
 
         // Add the step parameter.
@@ -70,55 +68,32 @@ class crossenroll_sections_form extends moodleform {
 
                 foreach ($sections as $sectionid => $sectiondata) {
 
-                    // Check if it's an object (new format) or just a string (fallback).
                     if (is_object($sectiondata)) {
                         $sectionname = $sectiondata->name;
                         $crosssplitid = $sectiondata->crosssplit_id;
+                        $isteamtaught = !empty($sectiondata->is_teamtaught);
                     } else {
                         $sectionname = $sectiondata;
                         $crosssplitid = null;
+                        $isteamtaught = false;
                     }
 
                     if ($crosssplitid) {
-
-                        // Build the link to undo the action.
-                        $undourl = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $crosssplitid]);
-                        $undolink = html_writer::link($undourl, get_string('wdsprefs:undoaction', 'block_wdsprefs'));
-
-                        $message = get_string('wdsprefs:alreadycrosssplit', 'block_wdsprefs', $undolink);
-
-                        $mform->addElement('html', html_writer::span($sectionname . ' - ' . $message, 'placeholder'));
+                         $undourl = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $crosssplitid]);
+                         $undolink = html_writer::link($undourl, get_string('wdsprefs:undoaction', 'block_wdsprefs'));
+                         $message = get_string('wdsprefs:alreadycrosssplit', 'block_wdsprefs', $undolink);
+                         $mform->addElement('html', html_writer::span($sectionname . ' - ' . $message, 'placeholder'));
+                    } elseif ($isteamtaught) {
+                         $disclaimer = get_string('wdsprefs:section_disclaimer_teamtaught_crossenroll', 'block_wdsprefs');
+                         $mform->addElement('html', html_writer::span($sectionname . ' — ' . $disclaimer, 'placeholder'));
                     } else {
-
-                        // Check for team teach.
-                        $ttstatus = block_wdsprefs_teamteach::check_section_status($sectionid, $USER->id);
-
-                        if (!$ttstatus['available']) {
-                            $viewlink = '';
-                            if (!empty($ttstatus['request_id'])) {
-                                $viewurl = new moodle_url('/blocks/wdsprefs/teamteach_sections.php', ['request_id' => $ttstatus['request_id']]);
-                                $viewlink = ' ' . html_writer::link($viewurl, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
-                            } elseif (!empty($ttstatus['crosssplit_id'])) {
-                                $viewurl = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $ttstatus['crosssplit_id']]);
-                                $viewlink = ' ' . html_writer::link($viewurl, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
-                            }
-
-                            $mform->addElement('advcheckbox',
-                                'selectedsections['.$sectionid.']',
-                                null,
-                                $sectionname . ' (' . $ttstatus['message'] . ')' . $viewlink,
-                                ['disabled' => 'disabled'],
-                                [0, $sectionid]
-                            );
-                        } else {
-                            $mform->addElement('advcheckbox',
-                                'selectedsections['.$sectionid.']',
-                                null,
-                                $sectionname,
-                                null,
-                                [0, $sectionid]
-                            );
-                        }
+                         $mform->addElement('advcheckbox',
+                            'selectedsections['.$sectionid.']',
+                            null,
+                            $sectionname,
+                            null,
+                            [0, $sectionid]
+                        );
                     }
                 }
 

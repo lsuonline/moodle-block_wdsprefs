@@ -805,14 +805,12 @@ class block_wdsprefs_teamteach {
 
         // Check if section is cross-listed, split, or cross-enrolled.
         $cross_section = $DB->get_record('block_wdsprefs_crosssplit_sections', ['section_id' => $section_id]);
-
         if ($cross_section) {
             $crosssplit = $DB->get_record('block_wdsprefs_crosssplits', ['id' => $cross_section->crosssplit_id]);
             $shell_name = $crosssplit ? $crosssplit->shell_name : 'Unknown Shell';
             return [
                 'available' => false,
-                'message' => get_string('wdsprefs:section_already_crosslisted', 'block_wdsprefs', $shell_name),
-                'crosssplit_id' => $cross_section->crosssplit_id
+                'message' => get_string('wdsprefs:section_already_crosslisted', 'block_wdsprefs', $shell_name)
             ];
         }
 
@@ -835,48 +833,12 @@ class block_wdsprefs_teamteach {
                 $course_name = $course ? $course->fullname : 'Unknown Course';
                 return [
                     'available' => false,
-                    'message' => get_string('wdsprefs:section_already_teamtaught', 'block_wdsprefs', $course_name),
-                    'request_id' => $request->id
+                    'message' => get_string('wdsprefs:section_already_teamtaught', 'block_wdsprefs', $course_name)
                 ];
             }
         }
 
         return ['available' => true, 'message' => ''];
-    }
-
-    /**
-     * Get all section IDs involved in team teach requests (pending or approved) for a user.
-     *
-     * @param int $userid The user ID.
-     * @return array Array of section IDs.
-     */
-    public static function get_team_taught_section_ids(int $userid): array {
-        global $DB;
-
-        $sql = "SELECT requested_section_ids, status, expirytime
-                FROM {block_wdsprefs_teamteach}
-                WHERE requested_userid = :userid
-                  AND (status = 'pending' OR status = 'approved')";
-
-        $requests = $DB->get_records_sql($sql, ['userid' => $userid]);
-
-        $section_ids = [];
-        foreach ($requests as $request) {
-
-            // Ignore expired pending requests.
-            if ($request->status == 'pending' && $request->expirytime < time()) {
-                continue;
-            }
-
-            $ids = json_decode($request->requested_section_ids, true);
-            if (is_array($ids)) {
-                foreach ($ids as $id) {
-                    $section_ids[] = (int)$id;
-                }
-            }
-        }
-
-        return array_unique($section_ids);
     }
 
     /**
@@ -953,28 +915,5 @@ class block_wdsprefs_teamteach {
         }
 
         return true;
-    }
-
-    /**
-     * Get all requests (pending and approved) where the user is either the requester or the requested teacher.
-     *
-     * @param int $userid
-     * @return array
-     */
-    public static function get_all_requests_for_user(int $userid): array {
-        global $DB;
-
-        $sql = "SELECT *
-                FROM {block_wdsprefs_teamteach}
-                WHERE (requester_userid = :userid1 OR requested_userid = :userid2)
-                  AND (status = 'pending' OR status = 'approved')
-                ORDER BY timecreated DESC";
-
-        $params = [
-            'userid1' => $userid,
-            'userid2' => $userid
-        ];
-
-        return $DB->get_records_sql($sql, $params);
     }
 }
