@@ -1921,19 +1921,19 @@ class wdsprefs {
         ];
 
         // Get all sections that are already part of crosssplits.
-        $crosssplitsql = "SELECT DISTINCT(section_id)
+        $crosssplitsql = "SELECT section_id, crosssplit_id, moodle_course_id
             FROM {block_wdsprefs_crosssplits} cs
             INNER JOIN {block_wdsprefs_crosssplit_sections} css
                 ON cs.id = css.crosssplit_id
-               #AND cs.academic_period_id = :periodid
-                AND cs.userid = :userid
+            WHERE cs.userid = :userid
                 AND cs.universal_id = :uid";
 
-        // Get the data.
-        $crosssplitsections = $DB->get_records_sql($crosssplitsql, $parms);
-
-        // Grab the sectionids for future use.
-        $excludeids = array_keys($crosssplitsections);
+        $csparms = ['userid' => $USER->id, 'uid' => $uid];
+        $crosssplitsections = $DB->get_records_sql($crosssplitsql, $csparms);
+        $crosssplitmap = [];
+        foreach ($crosssplitsections as $cs) {
+            $crosssplitmap[$cs->section_id] = $cs;
+        }
 
         // Build SQL query to get all relevant section information.
         $sql = "SELECT sec.id AS sectionid,
@@ -1960,14 +1960,7 @@ class wdsprefs {
              AND t.userid = :userid
              AND sec.academic_period_id = :periodid";
 
-        // Add condition to exclude already crosssplit sections if we have any.
-        if (!empty($excludeids)) {
-            list($insql, $inparms) = $DB->get_in_or_equal($excludeids, SQL_PARAMS_NAMED, 'exclude_', false);
-            $sql .= " AND sec.id " . $insql;
-            $parms = array_merge(['uid' => $uid, 'userid' => $USER->id, 'periodid' => $periodid], $inparms);
-        } else {
-            $parms = ['uid' => $uid, 'userid' => $USER->id, 'periodid' => $periodid];
-        }
+        $parms = ['uid' => $uid, 'userid' => $USER->id, 'periodid' => $periodid];
 
         $sql .= " GROUP BY sec.id
             ORDER BY sec.section_listing_id ASC";
@@ -1995,13 +1988,24 @@ class wdsprefs {
            $sectionvalue = "{$record->course_subject_abbreviation} ";
            $sectionvalue .= "{$record->course_number} {$record->section_number}";
 
+           $sectiondata = new stdClass();
+           $sectiondata->name = $sectionvalue;
+           $sectiondata->id = $record->sectionid;
+           $sectiondata->crosssplit_id = null;
+           $sectiondata->moodle_course_id = null;
+
+           if (isset($crosssplitmap[$record->sectionid])) {
+               $sectiondata->crosssplit_id = $crosssplitmap[$record->sectionid]->crosssplit_id;
+               $sectiondata->moodle_course_id = $crosssplitmap[$record->sectionid]->moodle_course_id;
+           }
+
            // Initialize the array for this course if it doesn't exist.
            if (!isset($formatteddata[$coursekey])) {
                $formatteddata[$coursekey] = [];
            }
 
            // Add this section to the course group.
-           $formatteddata[$coursekey][$record->sectionid] = $sectionvalue;
+           $formatteddata[$coursekey][$record->sectionid] = $sectiondata;
        }
 
        return $formatteddata;
@@ -2461,7 +2465,7 @@ class wdsprefs {
                 }
 
                 // Get info about the sections.
-                $sections = [];
+               $sections = [];
 
                 foreach ($sectionids as $sectionid) {
 
@@ -2524,10 +2528,13 @@ class wdsprefs {
                 $has_available_section = false;
                 foreach ($courses as $cname => $sections) {
                     foreach ($sections as $section) {
-                         // Check if section is NOT cross-split/enrolled.
+                         // Check if section is NOT cross-split/enrolled AND not team-taught.
                          if (empty($section->crosssplit_id)) {
-                             $has_available_section = true;
-                             break 2; // Break out of sections and courses loops
+                             $ttstatus = block_wdsprefs_teamteach::check_section_status($section->id, $userid);
+                             if ($ttstatus['available']) {
+                                 $has_available_section = true;
+                                 break 2; // Break out of sections and courses loops
+                             }
                          }
                     }
                 }
@@ -2664,11 +2671,7 @@ class wdsprefs {
                     $count = 0;
                     foreach ($sections_across as $period_group) {
                         foreach ($period_group as $course_group) {
-                            foreach ($course_group as $section) {
-                                if (empty($section->crosssplit_id)) {
-                                    $count++;
-                                }
-                            }
+                            $count += count($course_group);
                         }
                     }
 
@@ -2790,7 +2793,7 @@ class wdsprefs {
                 LEFT JOIN {enrol_wds_teachers} tea
                     ON tea.universal_id = tenr.universal_id
                 LEFT JOIN {course} c
-                    ON c.idnumber = sec.idnumber
+                    O sec.idnumber
                     AND sec.idnumber IS NOT NULL
                     AND c.idnumber != ''
                 LEFT JOIN {enrol_wds_section_meta} secm

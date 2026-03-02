@@ -130,35 +130,60 @@ class crosssplit_form extends moodleform {
         $unavailable_links = [];
 
         // Loop through the sectiondata.
-        foreach ($sectiondata as $value => $label) {
+        foreach ($sectiondata as $value => $sectionobj) {
 
-            $ttstatus = block_wdsprefs_teamteach::check_section_status($value, $USER->id);
-            if (!$ttstatus['available']) {
-                 $original_label = $label;
-                 $label .= ' (' . $ttstatus['message'] . ')';
-                 $disabled = 'disabled="disabled"';
-
-                 $link = '';
-                 if (!empty($ttstatus['request_id'])) {
-                     $url = new moodle_url('/blocks/wdsprefs/teamteach_sections.php', ['request_id' => $ttstatus['request_id']]);
-                     $link = html_writer::link($url, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
-                 } elseif (!empty($ttstatus['crosssplit_id'])) {
-                     $url = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $ttstatus['crosssplit_id']]);
-                     $link = html_writer::link($url, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
-                 }
-
-                 if ($link) {
-                     $unavailable_links[] = $original_label . ': ' . $ttstatus['message'] . ' ' . $link;
-                 } else {
-                     $unavailable_links[] = $original_label . ': ' . $ttstatus['message'];
-                 }
+            if (is_object($sectionobj)) {
+                $label = $sectionobj->name;
+                $crosssplitid = $sectionobj->crosssplit_id;
             } else {
-                 $disabled = '';
+                $label = $sectionobj;
+                $crosssplitid = null;
             }
 
-            $mform->addElement('html',
-                '<option value="' . $value . '" ' . $disabled . '>' .
-                $label . '</option>');
+            if ($crosssplitid) {
+                // Already crosssplit logic similar to crossenroll_sections_form
+                $original_label = $label;
+                $undourl = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $crosssplitid]);
+                $undolink = html_writer::link($undourl, get_string('wdsprefs:undoaction', 'block_wdsprefs'));
+                $message = get_string('wdsprefs:alreadycrosssplit', 'block_wdsprefs', $undolink);
+
+                $label .= ' - ' . $message;
+                $disabled = 'disabled="disabled"';
+                $unavailable_links[] = $original_label . ': ' . $message;
+
+                $mform->addElement('html',
+                    '<option value="' . $value . '" ' . $disabled . '>' .
+                    $label . '</option>');
+
+            } else {
+                $ttstatus = block_wdsprefs_teamteach::check_section_status($value, $USER->id);
+                if (!$ttstatus['available']) {
+                     $original_label = $label;
+                     $label .= ' (' . $ttstatus['message'] . ')';
+                     $disabled = 'disabled="disabled"';
+
+                     $link = '';
+                     if (!empty($ttstatus['request_id'])) {
+                         $url = new moodle_url('/blocks/wdsprefs/teamteach_sections.php', ['request_id' => $ttstatus['request_id']]);
+                         $link = html_writer::link($url, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
+                     } elseif (!empty($ttstatus['crosssplit_id'])) {
+                         $url = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $ttstatus['crosssplit_id']]);
+                         $link = html_writer::link($url, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
+                     }
+
+                     if ($link) {
+                         $unavailable_links[] = $original_label . ': ' . $ttstatus['message'] . ' ' . $link;
+                     } else {
+                         $unavailable_links[] = $original_label . ': ' . $ttstatus['message'];
+                     }
+                } else {
+                     $disabled = '';
+                }
+
+                $mform->addElement('html',
+                    '<option value="' . $value . '" ' . $disabled . '>' .
+                    $label . '</option>');
+            }
         }
 
         $mform->addElement('html', '</select>');
@@ -186,18 +211,13 @@ class crosssplit_form extends moodleform {
         $shelltagerror = get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs');
         $shelltaguniqueerror = get_string('wdsprefs:shelltagunique', 'block_wdsprefs');
         $shelltagunavailableerror = get_string('wdsprefs:shelltagunavailable', 'block_wdsprefs');
-        $mform->addElement('html', '<div 
-            class="duallist-shells" 
-            data-period="' . s($period) . '" 
-            data-teacher="' . s($teacher) . '" 
-            data-shell-tag-error="' . s($shelltagerror) . '" 
-            data-shell-tag-unique-error="' . s($shelltaguniqueerror) . '" 
-            data-shell-tag-unavailable-error="' . s($shelltagunavailableerror) . '" 
+        $mform->addElement('html', '<div class="duallist-shells" data-period="' . s($period) . '"
+            data-teacher="' . s($teacher) . '"
+            data-shell-tag-error="' . s($shelltagerror) . '"
+            data-shell-tag-unique-error="' . s($shelltaguniqueerror) . '"
+            data-shell-tag-unavailable-error="' . s($shelltagunavailableerror) . '"
             data-section-ids="' . json_encode(array_keys($sectiondata)) . '">
-                <label>' .
-                    get_string('wdsprefs:availableshells', 'block_wdsprefs') . 
-                '</label>'
-        );
+                <label>' . get_string('wdsprefs:availableshells', 'block_wdsprefs') . '</label>');
 
         // Create the shell select boxes: text input above, preview string below, then select.
         for ($i = 1; $i <= $shellcount; $i++) {
