@@ -106,7 +106,7 @@ class crossenroll_sections_form extends moodleform {
                             $mform->addElement('advcheckbox',
                                 'selectedsections['.$sectionid.']',
                                 null,
-                                $sectionname . ' (' . $ttstatus['message'] . ')' . $viewlink,
+                                $sectionname . ' <span class = "text-muted">(' . $ttstatus['message'] . ')</span> ' . $viewlink,
                                 ['disabled' => 'disabled'],
                                 [0, $sectionid]
                             );

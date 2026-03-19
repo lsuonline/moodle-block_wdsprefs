@@ -141,7 +141,8 @@ class crosssplit_form extends moodleform {
             }
 
             if ($crosssplitid) {
-                // Already crosssplit logic similar to crossenroll_sections_form
+
+                // Already crosssplit logic similar to crossenroll_sections_form.
                 $original_label = $label;
                 $undourl = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $crosssplitid]);
                 $undolink = html_writer::link($undourl, get_string('wdsprefs:undoaction', 'block_wdsprefs'));
