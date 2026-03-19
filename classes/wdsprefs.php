@@ -490,6 +490,50 @@ class wdsprefs {
     }
 
     /**
+     * Removes cross split records for an instructor no longer teaching a section.
+     *
+     * @param string $sectionlistingid Section listing ID (enrol_wds_sections.section_listing_id)
+     * @param string $universalid Instructor universal ID being removed from the section
+     * @return bool True if any records were removed or cleanup ran, false on invalid input
+     */
+    public static function remove_crosssplit_records_for_section_instructor($sectionlistingid, $universalid) {
+        global $DB;
+
+        if (empty($sectionlistingid) || empty($universalid)) {
+            return false;
+        }
+
+        $sql = "SELECT css.id, css.crosssplit_id
+                  FROM {block_wdsprefs_crosssplit_sections} css
+                  INNER JOIN {block_wdsprefs_crosssplits} cs ON cs.id = css.crosssplit_id
+                 WHERE css.section_listing_id = :sectionlistingid
+                   AND cs.universal_id = :universalid";
+        $params = [
+            'sectionlistingid' => $sectionlistingid,
+            'universalid' => $universalid,
+        ];
+        $rows = $DB->get_records_sql($sql, $params);
+        if (empty($rows)) {
+            return true;
+        }
+
+        $crosssplitids = [];
+        foreach ($rows as $row) {
+            $DB->delete_records('block_wdsprefs_crosssplit_sections', ['id' => $row->id]);
+            $crosssplitids[$row->crosssplit_id] = true;
+        }
+
+        foreach (array_keys($crosssplitids) as $crosssplitid) {
+            $count = $DB->count_records('block_wdsprefs_crosssplit_sections', ['crosssplit_id' => $crosssplitid]);
+            if ($count === 0) {
+                $DB->delete_records('block_wdsprefs_crosssplits', ['id' => $crosssplitid]);
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Creates a group for a section in a crosssplited course.
      *
      * @param @int $courseid The course ID.
