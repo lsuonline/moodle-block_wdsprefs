@@ -200,7 +200,7 @@ class block_wdsprefs_teamteach {
         $sections_str = '';
         if (!empty($section_ids)) {
             list($insql, $inparams) = $DB->get_in_or_equal($section_ids);
-            $sql = "SELECT s.section_number, c.course_subject_abbreviation, c.course_number
+            $sql = "SELECT s.id, s.section_number, c.course_subject_abbreviation, c.course_number
                     FROM {enrol_wds_sections} s
                     JOIN {enrol_wds_courses} c ON s.course_listing_id = c.course_listing_id
                     WHERE s.id $insql";
