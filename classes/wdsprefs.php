@@ -1002,10 +1002,10 @@ class wdsprefs {
             // Create a group for this section.
             $groupid = self::create_crosssplit_group($crosssplit->moodle_course_id, $section);
 
-            // Assign the section to the new course shell id.
-            $DB->set_field($stable, 'moodle_status', $crosssplit->moodle_course_id,
-                ['id' => $section->id]
-            );
+            // Assign the section to the new course shell id and sync idnumber from the course.
+            $section->moodle_status = $crosssplit->moodle_course_id;
+            $section->idnumber = $courseidnumber;
+            $DB->update_record($stable, $section);
 
             $senrollsql = "SELECT * FROM {enrol_wds_student_enroll}
                 WHERE section_listing_id = :slid
