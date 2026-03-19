@@ -18,10 +18,12 @@
  * @package    block_wdsprefs
  * @copyright  2025 onwards Louisiana State University
  * @copyright  2025 onwards Robert Russo
+ * @copyright  2026 onwards Steve Mattsen
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once("$CFG->dirroot/enrol/workdaystudent/classes/workdaystudent.php");
+require_once($CFG->dirroot . '/local/lsu/classes/shell_helper.php');
 
 class wdsprefs {
 
@@ -1000,10 +1002,10 @@ class wdsprefs {
             // Create a group for this section.
             $groupid = self::create_crosssplit_group($crosssplit->moodle_course_id, $section);
 
-            // Assign the section to the new course shell id.
-            $DB->set_field($stable, 'moodle_status', $crosssplit->moodle_course_id,
-                ['id' => $section->id]
-            );
+            // Assign the section to the new course shell id and sync idnumber from the course.
+            $section->moodle_status = $crosssplit->moodle_course_id;
+            $section->idnumber = $courseidnumber;
+            $DB->update_record($stable, $section);
 
             $senrollsql = "SELECT * FROM {enrol_wds_student_enroll}
                 WHERE section_listing_id = :slid
@@ -1311,10 +1313,12 @@ class wdsprefs {
                 } elseif (is_array($data) && isset($data[$shellnamefield])) {
                     $customname = trim($data[$shellnamefield]);
                 }
-
-                if ($customname !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $customname)) {
+                // Normalize using helper.
+                $customname = local_lsu_shell_helper::normalize($customname);
+                // Validate format using helper.
+                if ($customname !== '' && !local_lsu_shell_helper::validate_format($customname)) {
                     throw new \core\exception\invalid_parameter_exception(
-                        get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs')
+                        get_string('shelltaginvalid', 'local_lsu')
                     );
                 }
 

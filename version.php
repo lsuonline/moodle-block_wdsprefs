@@ -28,3 +28,6 @@ $plugin->version   = 2026012600;
 $plugin->requires  = 2023112800;
 $plugin->maturity  = MATURITY_BETA;
 $plugin->release   = '1.0.1-Disingenuous_Degenerate';
+$plugin->dependencies = [
+    'local_lsu' => 2016040804,  // Requires local_lsu version with shell_helper
+];

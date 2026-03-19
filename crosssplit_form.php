@@ -18,21 +18,30 @@
  * @package    block_wdsprefs
  * @copyright  2025 onwards Louisiana State University
  * @copyright  2025 onwards Robert Russo
+ * @copyright  2026 onwards Steve Mattsen
  * @license    http://www . gnu . org/copyleft/gpl . html GNU GPL v3 or later
  */
 
 require_once("$CFG->libdir/formslib.php");
+require_once($CFG->dirroot . '/local/lsu/classes/shell_helper.php');
 
 class crosssplit_form extends moodleform {
 
     public function definition() {
-        global $CFG, $PAGE, $OUTPUT;
+        global $CFG, $PAGE, $OUTPUT, $USER;
 
         // Add the step parameter.
         $this->_form->addElement('hidden', 'step', 'assign');
         $this->_form->setType('step', PARAM_TEXT);
 
         $mform = $this->_form;
+
+        // Hidden fields for validation (userid and academic_period_id).
+        $periodid = $this->_customdata['periodid'] ?? '';
+        $mform->addElement('hidden', 'userid', $USER->id);
+        $mform->setType('userid', PARAM_INT);
+        $mform->addElement('hidden', 'academic_period_id', $periodid);
+        $mform->setType('academic_period_id', PARAM_TEXT);
 
         // Get the secitons.
         $sectiondata = $this->_customdata['sectiondata'] ?? [];
@@ -80,7 +89,12 @@ class crosssplit_form extends moodleform {
             );
         }
 
-
+        $sectionids = array_keys($sectiondata);
+        $unavailable_shell_tags = $this->get_unavailable_shell_tags(
+            $USER->id,
+            $periodid,
+            $sectionids
+        );
         // Instructions.
         $mform->addElement('html',
             '<div class="alert alert-info"><p>' .
@@ -132,9 +146,20 @@ class crosssplit_form extends moodleform {
             </div>');
 
         // Shell sections (multiple boxes on right). Pass period/teacher for live preview.
-        $shelltagerror = get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs');
-        $mform->addElement('html', '<div class="duallist-shells" data-period="' . s($period) . '" data-teacher="' . s($teacher) . '" data-shell-tag-error="' . s($shelltagerror) . '"><label>' .
-            get_string('wdsprefs:availableshells', 'block_wdsprefs') . '</label>'
+        $shelltagerror = get_string('shelltaginvalid', 'local_lsu');
+        $shelltaguniqueerror = get_string('shelltagunique', 'local_lsu');
+        $shelltagunavailableerror = get_string('shelltagunavailable', 'local_lsu');
+        $mform->addElement('html', '<div 
+            class="duallist-shells" 
+            data-period="' . s($period) . '" 
+            data-teacher="' . s($teacher) . '" 
+            data-shell-tag-error="' . s($shelltagerror) . '" 
+            data-shell-tag-unique-error="' . s($shelltaguniqueerror) . '" 
+            data-shell-tag-unavailable-error="' . s($shelltagunavailableerror) . '" 
+            data-section-ids="' . json_encode(array_keys($sectiondata)) . '">
+                <label>' .
+                    get_string('wdsprefs:availableshells', 'block_wdsprefs') . 
+                '</label>'
         );
 
         // Create the shell select boxes: text input above, preview string below, then select.
@@ -151,7 +176,13 @@ class crosssplit_form extends moodleform {
             ]);
             $mform->setType("shell_{$i}_tag", PARAM_TEXT);
             $mform->setDefault("shell_{$i}_tag", '');
-            $mform->addElement('html', '<select class="form-control shell-select" id="shell_' . $i . '" data-shell-num="' . $i . '" multiple size="2"></select></div>');
+            $mform->addElement('html', '<select 
+                class="form-control shell-select" 
+                id="shell_' . $i . '" 
+                data-shell-num="' . $i . '" 
+                multiple 
+                size="2"
+            ></select></div>');
         }
 
         $mform->addElement('html', '</div></div>');
@@ -159,6 +190,7 @@ class crosssplit_form extends moodleform {
         // Add JavaScript INLINE to manage the dual list functionality.
         $mform->addElement('html', '
         <script>
+        const unavailableShellTags = ' . json_encode(array_values($unavailable_shell_tags)) . ';
         document.addEventListener("DOMContentLoaded", function() {
             let activeShellId = "shell_1";
 
@@ -221,17 +253,41 @@ class crosssplit_form extends moodleform {
                     errorEl.style.display = "";
                 }
             }
+            var uniqueErrorMsg = shellsContainer ? shellsContainer.getAttribute("data-shell-tag-unique-error") || "" : "";
+            var unavailableErrorMsg = shellsContainer ? shellsContainer.getAttribute("data-shell-tag-unavailable-error") || "" : "";
+            var formatErrorMsg = shellsContainer ? shellsContainer.getAttribute("data-shell-tag-error") || "" : "";
+            function validateShellTags() {
+                var tags = [];
+                document.querySelectorAll(".duallist-shell").forEach(function(shellBlock) {
+                    var shellNum = shellBlock.getAttribute("data-shell-num");
+                    var element = shellBlock.querySelector("input[name*=\"shell_\"][name*=\"_tag\"]");
+                    if (element && shellNum) {
+                        var value = (element.value || "").trim() || ("Shell " + shellNum);
+                        tags.push({ element: element, value: value });
+                    }
+                });
+                var tagValueCounts = {};
+                tags.forEach(function(tag) {
+                    tagValueCounts[tag.value] = (tagValueCounts[tag.value] || 0) + 1;
+                });
+                tags.forEach(function(tag) {
+                    if (!validateShellTag(tag.element.value)) {
+                        showShellTagError(tag.element, formatErrorMsg);
+                    } else if (unavailableShellTags && unavailableShellTags.indexOf(tag.value) !== -1) {
+                        showShellTagError(tag.element, unavailableErrorMsg);
+                    } else if (tagValueCounts[tag.value] > 1) {
+                        showShellTagError(tag.element, uniqueErrorMsg);
+                    } else {
+                        hideShellTagError(tag.element);
+                    }
+                });
+            }
             function bindShellTagInput(shellNum, input) {
                 if (!input || !shellNum || input.dataset.shellPreviewBound) return;
                 input.dataset.shellPreviewBound = "1";
-                var errorMsg = shellsContainer ? shellsContainer.getAttribute("data-shell-tag-error") || "" : "";
                 function onShellTagChange() {
                     updateShellPreview(shellNum, this.value);
-                    if (validateShellTag(this.value)) {
-                        hideShellTagError(this);
-                    } else {
-                        showShellTagError(this, errorMsg);
-                    }
+                    validateShellTags();
                 }
                 input.addEventListener("input", onShellTagChange);
                 input.addEventListener("change", onShellTagChange);
@@ -374,8 +430,11 @@ class crosssplit_form extends moodleform {
             const form = document.querySelector("form.mform");
             if (form) {
                 form.addEventListener("submit", function(e) {
-                    // Final update of hidden fields before submission
                     updateHiddenFields();
+                    validateShellTags();
+                    if (document.querySelector(".shell-tag.is-invalid")) {
+                        e.preventDefault();
+                    }
                 });
             }
         });
@@ -393,17 +452,108 @@ class crosssplit_form extends moodleform {
      * @return array Validation errors
      */
     public function validation($data, $files) {
+        global $USER;
+
         $errors = parent::validation($data, $files);
         $shellcount = $this->_customdata['shellcount'] ?? 2;
+
+        $userid = isset($data['userid']) ? (int) $data['userid'] : $USER->id;
+        $academicperiodid = isset($data['academic_period_id']) ? $data['academic_period_id'] : ($this->_customdata['periodid'] ?? '');
+
+        // Collect section IDs from submitted shell_*_data (JSON arrays).
+        $sectionids = [];
+        for ($i = 1; $i <= $shellcount; $i++) {
+            $fieldname = "shell_{$i}_data";
+            if (!empty($data[$fieldname])) {
+                $decoded = json_decode($data[$fieldname], true);
+                if (is_array($decoded)) {
+                    $sectionids = array_merge($sectionids, $decoded);
+                }
+            }
+        }
+        $sectionids = array_values(array_unique(array_map('intval', $sectionids)));
+
+        $unavailable_shell_tags = $this->get_unavailable_shell_tags($userid, $academicperiodid, $sectionids);
+        $tag_by_field = [];
 
         for ($i = 1; $i <= $shellcount; $i++) {
             $fieldname = "shell_{$i}_tag";
             $value = isset($data[$fieldname]) ? trim($data[$fieldname]) : '';
-            if ($value !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $value)) {
-                $errors[$fieldname] = get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs');
+            
+            // Validate format using helper.
+            if ($value !== '' && !local_lsu_shell_helper::validate_format($value)) {
+                $errors[$fieldname] = get_string('shelltaginvalid', 'local_lsu');
+            }
+            
+            // Normalize the tag value.
+            $normalized = $value !== '' ? local_lsu_shell_helper::normalize($value) : "Shell $i";
+            $tag_by_field[$fieldname] = $normalized;
+            
+            // Check if tag is unavailable.
+            if (local_lsu_shell_helper::is_unavailable($normalized, $unavailable_shell_tags)) {
+                $errors[$fieldname] = get_string('shelltagunavailable', 'local_lsu');
+            }
+        }
+
+        // Check uniqueness of shell tags using helper.
+        $tagvalues = array_values($tag_by_field);
+        $duplicates = local_lsu_shell_helper::find_duplicates($tagvalues);
+        
+        if (!empty($duplicates)) {
+            $err = get_string('shelltagunique', 'local_lsu');
+            foreach ($tag_by_field as $fn => $tagvalue) {
+                if (in_array($tagvalue, $duplicates, true) && !isset($errors[$fn])) {
+                    $errors[$fn] = $err;
+                }
             }
         }
 
         return $errors;
+    }
+
+    /**
+     * Get the unavailable shell tags for the given context.
+     * Returns tags already used by any existing crosssplit
+     *
+     * @param int $userid User id
+     * @param string $academic_period_id Academic period id
+     * @param array $sectionids Section ids in the current assignment (optional)
+     * @return array Unavailable shell tags
+     */
+    public function get_unavailable_shell_tags($userid, $academic_period_id, array $sectionids = []) : array {
+        global $DB;
+
+        $sectionids = array_map('intval', $sectionids);
+        if (empty($sectionids)) {
+            return [];
+        }
+
+        list($insql, $inparams) = $DB->get_in_or_equal($sectionids, SQL_PARAMS_NAMED, 'sid');
+        $params = [
+            'userid' => $userid,
+            'academic_period_id' => $academic_period_id,
+            'academic_period_id_sub' => $academic_period_id,
+        ];
+        $params = array_merge($params, $inparams);
+
+        $query = "SELECT DISTINCT
+            TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(cs.shell_name, '(', -1), ')', 1)) AS shell_tag
+            FROM {block_wdsprefs_crosssplits} cs
+            INNER JOIN {block_wdsprefs_crosssplit_sections} css ON css.crosssplit_id = cs.id
+            INNER JOIN {enrol_wds_sections} sec ON sec.id = css.section_id
+            WHERE cs.userid = :userid
+            AND sec.academic_period_id = :academic_period_id
+            AND sec.course_listing_id IN (
+                SELECT DISTINCT sub.course_listing_id
+                FROM {enrol_wds_sections} sub
+                WHERE sub.academic_period_id = :academic_period_id_sub
+                AND sub.id " . $insql . "
+            )";
+        $shelltags = $DB->get_records_sql($query, $params);
+
+        $tags = array_map(function($row) {
+            return local_lsu_shell_helper::normalize($row->shell_tag);
+        }, $shelltags);
+        return array_values(array_unique($tags));
     }
 }
