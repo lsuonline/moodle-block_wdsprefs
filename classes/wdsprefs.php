@@ -23,6 +23,7 @@
  */
 
 require_once("$CFG->dirroot/enrol/workdaystudent/classes/workdaystudent.php");
+require_once($CFG->dirroot . '/local/lsu/classes/shell_helper.php');
 
 class wdsprefs {
 
@@ -1321,10 +1322,12 @@ class wdsprefs {
                 } elseif (is_array($data) && isset($data[$shellnamefield])) {
                     $customname = trim($data[$shellnamefield]);
                 }
-                $customname = core_text::substr($customname, 0, 64);
-                if ($customname !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $customname)) {
+                // Normalize using helper.
+                $customname = local_lsu_shell_helper::normalize($customname);
+                // Validate format using helper.
+                if ($customname !== '' && !local_lsu_shell_helper::validate_format($customname)) {
                     throw new \core\exception\invalid_parameter_exception(
-                        get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs')
+                        get_string('shelltaginvalid', 'local_lsu')
                     );
                 }
 
