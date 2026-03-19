@@ -794,6 +794,57 @@ class block_wdsprefs_teamteach {
     }
 
     /**
+     * Check the status of a shell to see if it is already team taught.
+     *
+     * @param int $section_id The ID of the section to check.
+     * @param int $teacher_id The ID of the teacher.
+     * @return array [available (bool), message (string)]
+     */
+    public static function check_shell_section_status(int $section_id, int $teacher_id): array {
+        global $DB;
+
+        $parms = ['teacherid' => $teacher_id, 'sectionid' => $section_id];
+
+        // Check if shell is already involved in a team teach request (pending or approved).
+        $sql = "SELECT s2.id AS sectionid, c.fullname, tt.*
+                  FROM mdl_course c
+                  INNER JOIN {enrol_wds_sections} s ON s.moodle_status = c.id
+                  INNER JOIN {enrol_wds_sections} s2 ON s2.moodle_status = c.id
+                  INNER JOIN {block_wdsprefs_teamteach} tt ON tt.target_course_id = c.id
+                  WHERE s.id = :sectionid
+                  AND (tt.status = 'pending' OR tt.status = 'approved')
+                  GROUP BY c.id";
+
+        // Do le nasty.
+        $requests = $DB->get_records_sql($sql, $parms);
+
+        // Loop through the data.
+        foreach ($requests as $request) {
+
+            // We have a matched section within this shell.
+            if ($section_id == $request->sectionid) {
+
+                // Ignore expired pending requests.
+                if ($request->status == 'pending' && $request->expirytime < time()) {
+                    continue;
+                }
+
+                // Set the course name and be sure we have one.
+                $course_name = $request->fullname ? $request->fullname : 'Unknown Course';
+
+                // Return that we have one and that this section is not available.
+                return [
+                    'available' => false,
+                    'message' => get_string('wdsprefs:section_already_teamtaught', 'block_wdsprefs', $course_name),
+                    'request_id' => $request->id
+                ];
+            }
+        }
+
+        return ['available' => true, 'message' => ''];
+    }
+
+    /**
      * Check the status of a section to see if it is already cross-listed, split, or team taught.
      *
      * @param int $section_id The ID of the section to check.
