@@ -18,10 +18,12 @@
  * @package    block_wdsprefs
  * @copyright  2025 onwards Louisiana State University
  * @copyright  2025 onwards Robert Russo
+ * @copyright  2026 onwards Steve Mattsen
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once("$CFG->dirroot/enrol/workdaystudent/classes/workdaystudent.php");
+require_once($CFG->dirroot . '/blocks/wdsprefs/classes/shell_tag_helper.php');
 
 class wdsprefs {
 
@@ -485,6 +487,50 @@ class wdsprefs {
             $transaction->rollback($e);
             return false;
         }
+    }
+
+    /**
+     * Removes cross split records for an instructor no longer teaching a section.
+     *
+     * @param string $sectionlistingid Section listing ID (enrol_wds_sections.section_listing_id)
+     * @param string $universalid Instructor universal ID being removed from the section
+     * @return bool True if any records were removed or cleanup ran, false on invalid input
+     */
+    public static function remove_crosssplit_records_for_section_instructor($sectionlistingid, $universalid) {
+        global $DB;
+
+        if (empty($sectionlistingid) || empty($universalid)) {
+            return false;
+        }
+
+        $sql = "SELECT css.id, css.crosssplit_id
+                  FROM {block_wdsprefs_crosssplit_sections} css
+                  INNER JOIN {block_wdsprefs_crosssplits} cs ON cs.id = css.crosssplit_id
+                 WHERE css.section_listing_id = :sectionlistingid
+                   AND cs.universal_id = :universalid";
+        $params = [
+            'sectionlistingid' => $sectionlistingid,
+            'universalid' => $universalid,
+        ];
+        $rows = $DB->get_records_sql($sql, $params);
+        if (empty($rows)) {
+            return true;
+        }
+
+        $crosssplitids = [];
+        foreach ($rows as $row) {
+            $DB->delete_records('block_wdsprefs_crosssplit_sections', ['id' => $row->id]);
+            $crosssplitids[$row->crosssplit_id] = true;
+        }
+
+        foreach (array_keys($crosssplitids) as $crosssplitid) {
+            $count = $DB->count_records('block_wdsprefs_crosssplit_sections', ['crosssplit_id' => $crosssplitid]);
+            if ($count === 0) {
+                $DB->delete_records('block_wdsprefs_crosssplits', ['id' => $crosssplitid]);
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -1000,10 +1046,10 @@ class wdsprefs {
             // Create a group for this section.
             $groupid = self::create_crosssplit_group($crosssplit->moodle_course_id, $section);
 
-            // Assign the section to the new course shell id.
-            $DB->set_field($stable, 'moodle_status', $crosssplit->moodle_course_id,
-                ['id' => $section->id]
-            );
+            // Assign the section to the new course shell id and sync idnumber from the course.
+            $section->moodle_status = $crosssplit->moodle_course_id;
+            $section->idnumber = $courseidnumber;
+            $DB->update_record($stable, $section);
 
             $senrollsql = "SELECT * FROM {enrol_wds_student_enroll}
                 WHERE section_listing_id = :slid
@@ -1311,8 +1357,10 @@ class wdsprefs {
                 } elseif (is_array($data) && isset($data[$shellnamefield])) {
                     $customname = trim($data[$shellnamefield]);
                 }
-
-                if ($customname !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $customname)) {
+                // Normalize using helper.
+                $customname = \block_wdsprefs\shell_tag_helper::normalize($customname);
+                // Validate format using helper.
+                if ($customname !== '' && !\block_wdsprefs\shell_tag_helper::validate_format($customname)) {
                     throw new \core\exception\invalid_parameter_exception(
                         get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs')
                     );

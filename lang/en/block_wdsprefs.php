@@ -18,6 +18,7 @@
  * @package    block_wdsprefs
  * @copyright  2025 onwards Louisiana State University
  * @copyright  2025 onwards Robert Russo
+ * @copyright  2026 onwards Steve Mattsen
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -93,7 +94,7 @@ $string['wdsprefs:shellcount'] = 'Number of course shells';
 $string['wdsprefs:shell'] = 'Shell {$a}';
 $string['wdsprefs:onetoone'] = 'Splitting one (1) course with one (1) section will not do anything.';
 $string['wdsprefs:toomanyshells'] = 'You have selected more course shells: {$a->shellword} ({$a->shell}) than sections: {$a->secword} ({$a->sec}).';
-$string['wdsprefs:atleastonesections'] = 'You must select at least one section to enable Cross-listing & Splitting.';
+$string['wdsprefs:atleastonesection'] = 'You must select at least one section to enable Cross-listing & Splitting.';
 $string['wdsprefs:crosssplitsuccess'] = 'Cross-splitting setup successful.';
 $string['wdsprefs:duplicatesection'] = 'Each section can only be assigned to one shell.';
 $string['wdsprefs:availablesections'] = 'Available sections';
@@ -105,6 +106,8 @@ $string['wdsprefs:periodwithcount'] = '{$a->name} &mdash; {$a->count} available 
 $string['wdsprefs:crosssplitfail'] = 'Cross-splitting failed';
 $string['wdsprefs:shellname'] = 'Shell name';
 $string['wdsprefs:shelltaginvalid'] = 'Shell tag may only contain letters, numbers, dashes, underscores and spaces.';
+$string['wdsprefs:shelltagunique'] = 'Two or more shells have the same name. Give each shell a different name.';
+$string['wdsprefs:shelltagunavailable'] = 'This name is already used by an existing course shell. Choose a different name.';
 $string['wdsprefs:datecreated'] = 'Date created';
 $string['wdsprefs:actions'] = 'Actions';
 $string['wdsprefs:viewcourse'] = 'View course';
