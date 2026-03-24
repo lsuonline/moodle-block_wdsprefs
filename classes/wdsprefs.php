@@ -490,43 +490,117 @@ class wdsprefs {
     }
 
     /**
-     * Removes cross split records for an instructor no longer teaching a section.
+     * Removes cross-split or team-teach records for an instructor no longer teaching a section.
      *
-     * @param string $sectionlistingid Section listing ID (enrol_wds_sections.section_listing_id)
+     * @param string $sectionid (enrol_wds_sections.id)
      * @param string $universalid Instructor universal ID being removed from the section
      * @return bool True if any records were removed or cleanup ran, false on invalid input
      */
-    public static function remove_crosssplit_records_for_section_instructor($sectionlistingid, $universalid) {
+    public static function remove_crosssplit_records_for_section_instructor($sectionid, $universalid):bool {
         global $DB;
 
-        if (empty($sectionlistingid) || empty($universalid)) {
+        if (empty($sectionid) || empty($universalid)) {
             return false;
         }
 
-        $sql = "SELECT css.id, css.crosssplit_id
+        // Get crosssplits.
+        $cssql = "SELECT css.id, css.crosssplit_id AS neededid, 'block_wdsprefs_crosssplit_sections' AS tablename
                   FROM {block_wdsprefs_crosssplit_sections} css
                   INNER JOIN {block_wdsprefs_crosssplits} cs ON cs.id = css.crosssplit_id
-                 WHERE css.section_listing_id = :sectionlistingid
+                 WHERE css.section_id = :sectionid
                    AND cs.universal_id = :universalid";
-        $params = [
-            'sectionlistingid' => $sectionlistingid,
+
+        $csparams = [
+            'sectionid' => $sectionid,
             'universalid' => $universalid,
         ];
-        $rows = $DB->get_records_sql($sql, $params);
+
+        // Do the nasty.
+        $csrows = $DB->get_records_sql($cssql, $csparams);
+
+        // Get the team teaches.
+        $ttsql = "SELECT tt.id, tt.id AS neededid, 'block_wdsprefs_teamteach' AS tablename
+                  FROM {block_wdsprefs_teamteach} tt
+                 WHERE JSON_CONTAINS(requested_section_ids, CAST(:sectionid AS JSON))
+                 AND (tt.requested_userid = :requested OR tt.requester_userid = :requester)";
+
+        $ttparams = [
+            'sectionid' => $sectionid,
+            'requested' => $universalid,
+            'requester' => $universalid,
+        ];
+
+        // Do the nasty.
+        $ttrows = $DB->get_records_sql($ttsql, $ttparams);
+
+        // Merge these together so we don't waste time if nothing returns.
+        $rows = array_merge($csrows, $ttrows);
+
+        // Quick return because we don't have anything to do.
         if (empty($rows)) {
             return true;
         }
 
-        $crosssplitids = [];
-        foreach ($rows as $row) {
-            $DB->delete_records('block_wdsprefs_crosssplit_sections', ['id' => $row->id]);
-            $crosssplitids[$row->crosssplit_id] = true;
+        // Only process crosssplits if we have them.
+        if (!empty($csrows)) {
+
+            // Set up this array for later.
+            $crosssplitids = [];
+
+            // Loop through the array.
+            foreach ($csrows as $csrow) {
+
+                // Delete the sections that have been reassigned.
+                $DB->delete_records('block_wdsprefs_crosssplit_sections', ['id' => $csrow->id]);
+                $crosssplitids[$csrow->neededid] = true;
+            }
+
+            // Loop through the crosssplits for this instructor / sections.
+            foreach (array_keys($crosssplitids) as $crosssplitid) {
+
+                // Count the remaining cross-split sections for this cross-split entry.
+                $cscount = $DB->count_records('block_wdsprefs_crosssplit_sections', ['crosssplit_id' => $crosssplitid]);
+
+                // If we have none, delete the actual cross-split itself.
+                if ($cscount === 0) {
+                    $DB->delete_records('block_wdsprefs_crosssplits', ['id' => $crosssplitid]);
+                }
+            }
         }
 
-        foreach (array_keys($crosssplitids) as $crosssplitid) {
-            $count = $DB->count_records('block_wdsprefs_crosssplit_sections', ['crosssplit_id' => $crosssplitid]);
-            if ($count === 0) {
-                $DB->delete_records('block_wdsprefs_crosssplits', ['id' => $crosssplitid]);
+        // Only process team teach if we have records.
+        if (!empty($ttrows)) {
+
+            // Loop through all the team teaches for this section / instructor. We should only have one, but let's be consistent.
+            foreach ($ttrows as $ttrow) {
+
+                // Get the entire TT record.
+                $ttrecord = $DB->get_record('block_wdsprefs_teamteach', ['id' => $ttrow->neededid], '*', MUST_EXIST);
+
+                // Decode the JSON data.
+                $ttsections = json_decode($ttrecord->requested_section_ids, true);
+
+                if (!is_array($ttsections)) {
+                    $ttsections = [];
+                }
+
+                // Remove the section ID.
+                $ttsections = array_values(array_filter($ttsections, function ($ttid) use ($ttrow->neededid) {
+                    return (int)$ttid !== (int)$ttrow->neededid;
+                }));
+
+                // If we have no sections left, delete the TT record.
+                if (empty($ttsections)) {
+                    $DB->delete_records('block_wdsprefs_teamteach', ['id' => $ttrow->neededid]);
+                    return;
+                }
+
+                // We have more than one section left, update the TT record accordingly.
+                $ttrecord->requested_section_ids = json_encode($ttsections);
+                $ttrecord->timemodified = time();
+
+                // Do the nasty.
+                $DB->update_record('block_wdsprefs_teamteach', $ttrecord);
             }
         }
 
