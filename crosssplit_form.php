@@ -24,6 +24,7 @@
 
 require_once("$CFG->libdir/formslib.php");
 require_once("$CFG->dirroot/blocks/wdsprefs/classes/teamteach.php");
+require_once($CFG->dirroot . '/blocks/wdsprefs/classes/shell_tag_helper.php');
 
 class crosssplit_form extends moodleform {
 
@@ -224,6 +225,7 @@ class crosssplit_form extends moodleform {
         $shelltagunavailableerror = get_string('wdsprefs:shelltagunavailable', 'block_wdsprefs');
         $mform->addElement('html', '<div class="duallist-shells" data-period="' . s($period) . '"
             data-teacher="' . s($teacher) . '"
+
             data-shell-tag-error="' . s($shelltagerror) . '"
             data-shell-tag-unique-error="' . s($shelltaguniqueerror) . '"
             data-shell-tag-unavailable-error="' . s($shelltagunavailableerror) . '"
@@ -547,27 +549,30 @@ class crosssplit_form extends moodleform {
         for ($i = 1; $i <= $shellcount; $i++) {
             $fieldname = "shell_{$i}_tag";
             $value = isset($data[$fieldname]) ? trim($data[$fieldname]) : '';
-            if ($value !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $value)) {
+            
+            // Validate format using helper.
+            if ($value !== '' && !\block_wdsprefs\shell_tag_helper::validate_format($value)) {
                 $errors[$fieldname] = get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs');
             }
-            $tag_by_field[$fieldname] = $value !== '' ? trim($value) : "Shell $i";
-            if (in_array($tag_by_field[$fieldname], $unavailable_shell_tags)) {
+
+            // Normalize the tag value.
+            $normalized = $value !== '' ? \block_wdsprefs\shell_tag_helper::normalize($value) : "Shell $i";
+            $tag_by_field[$fieldname] = $normalized;
+
+            // Check if tag is unavailable.
+            if (\block_wdsprefs\shell_tag_helper::is_unavailable($normalized, $unavailable_shell_tags)) {
                 $errors[$fieldname] = get_string('wdsprefs:shelltagunavailable', 'block_wdsprefs');
             }
         }
 
-        // Check uniqueness of shell tags.
-        $fields_by_shelltag = [];
-        foreach ($tag_by_field as $fn => $key) {
-            if (!isset($errors[$fn])) {
-                $fields_by_shelltag[$key][] = $fn;
-            }
-        }
-        foreach ($fields_by_shelltag as $fieldnames) {
-            // If there are multiple fields with the same shell tag, add an error to each field.
-            if (count($fieldnames) > 1) {
-                $err = get_string('wdsprefs:shelltagunique', 'block_wdsprefs');
-                foreach ($fieldnames as $fn) {
+        // Check uniqueness of shell tags using helper.
+        $tagvalues = array_values($tag_by_field);
+        $duplicates = \block_wdsprefs\shell_tag_helper::find_duplicates($tagvalues);
+
+        if (!empty($duplicates)) {
+            $err = get_string('wdsprefs:shelltagunique', 'block_wdsprefs');
+            foreach ($tag_by_field as $fn => $tagvalue) {
+                if (in_array($tagvalue, $duplicates, true) && !isset($errors[$fn])) {
                     $errors[$fn] = $err;
                 }
             }
@@ -617,8 +622,8 @@ class crosssplit_form extends moodleform {
         $shelltags = $DB->get_records_sql($query, $params);
 
         $tags = array_map(function($row) {
-            return $row->shell_tag;
+            return \block_wdsprefs\shell_tag_helper::normalize($row->shell_tag);
         }, $shelltags);
-        return $tags;
+        return array_values(array_unique($tags));
     }
 }

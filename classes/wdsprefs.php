@@ -23,6 +23,7 @@
  */
 
 require_once("$CFG->dirroot/enrol/workdaystudent/classes/workdaystudent.php");
+require_once($CFG->dirroot . '/blocks/wdsprefs/classes/shell_tag_helper.php');
 
 class wdsprefs {
 
@@ -486,6 +487,124 @@ class wdsprefs {
             $transaction->rollback($e);
             return false;
         }
+    }
+
+    /**
+     * Removes cross-split or team-teach records for an instructor no longer teaching a section.
+     *
+     * @param string $sectionid (enrol_wds_sections.id)
+     * @param string $universalid Instructor universal ID being removed from the section
+     * @return bool True if any records were removed or cleanup ran, false on invalid input
+     */
+    public static function remove_crosssplit_records_for_section_instructor($sectionid, $universalid):bool {
+        global $DB;
+
+        if (empty($sectionid) || empty($universalid)) {
+            return false;
+        }
+
+        // Get crosssplits.
+        $cssql = "SELECT css.id, css.crosssplit_id AS neededid, 'block_wdsprefs_crosssplit_sections' AS tablename
+                  FROM {block_wdsprefs_crosssplit_sections} css
+                  INNER JOIN {block_wdsprefs_crosssplits} cs ON cs.id = css.crosssplit_id
+                 WHERE css.section_id = :sectionid
+                   AND cs.universal_id = :universalid";
+
+        $csparams = [
+            'sectionid' => $sectionid,
+            'universalid' => $universalid,
+        ];
+
+        // Do the nasty.
+        $csrows = $DB->get_records_sql($cssql, $csparams);
+
+        // Get the team teaches.
+        $ttsql = "SELECT tt.id, tt.id AS neededid, 'block_wdsprefs_teamteach' AS tablename
+                  FROM {block_wdsprefs_teamteach} tt
+                 WHERE JSON_CONTAINS(requested_section_ids, CAST(:sectionid AS JSON))
+                 AND (tt.requested_userid = :requested OR tt.requester_userid = :requester)";
+
+        $ttparams = [
+            'sectionid' => $sectionid,
+            'requested' => $universalid,
+            'requester' => $universalid,
+        ];
+
+        // Do the nasty.
+        $ttrows = $DB->get_records_sql($ttsql, $ttparams);
+
+        // Merge these together so we don't waste time if nothing returns.
+        $rows = array_merge($csrows, $ttrows);
+
+        // Quick return because we don't have anything to do.
+        if (empty($rows)) {
+            return true;
+        }
+
+        // Only process crosssplits if we have them.
+        if (!empty($csrows)) {
+
+            // Set up this array for later.
+            $crosssplitids = [];
+
+            // Loop through the array.
+            foreach ($csrows as $csrow) {
+
+                // Delete the sections that have been reassigned.
+                $DB->delete_records('block_wdsprefs_crosssplit_sections', ['id' => $csrow->id]);
+                $crosssplitids[$csrow->neededid] = true;
+            }
+
+            // Loop through the crosssplits for this instructor / sections.
+            foreach (array_keys($crosssplitids) as $crosssplitid) {
+
+                // Count the remaining cross-split sections for this cross-split entry.
+                $cscount = $DB->count_records('block_wdsprefs_crosssplit_sections', ['crosssplit_id' => $crosssplitid]);
+
+                // If we have none, delete the actual cross-split itself.
+                if ($cscount === 0) {
+                    $DB->delete_records('block_wdsprefs_crosssplits', ['id' => $crosssplitid]);
+                }
+            }
+        }
+
+        // Only process team teach if we have records.
+        if (!empty($ttrows)) {
+
+            // Loop through all the team teaches for this section / instructor. We should only have one, but let's be consistent.
+            foreach ($ttrows as $ttrow) {
+
+                // Get the entire TT record.
+                $ttrecord = $DB->get_record('block_wdsprefs_teamteach', ['id' => $ttrow->neededid], '*', MUST_EXIST);
+
+                // Decode the JSON data.
+                $ttsections = json_decode($ttrecord->requested_section_ids, true);
+
+                if (!is_array($ttsections)) {
+                    $ttsections = [];
+                }
+
+                // Remove the section ID.
+                $ttsections = array_values(array_filter($ttsections, function ($ttid) use ($ttrow->neededid) {
+                    return (int)$ttid !== (int)$ttrow->neededid;
+                }));
+
+                // If we have no sections left, delete the TT record.
+                if (empty($ttsections)) {
+                    $DB->delete_records('block_wdsprefs_teamteach', ['id' => $ttrow->neededid]);
+                    return;
+                }
+
+                // We have more than one section left, update the TT record accordingly.
+                $ttrecord->requested_section_ids = json_encode($ttsections);
+                $ttrecord->timemodified = time();
+
+                // Do the nasty.
+                $DB->update_record('block_wdsprefs_teamteach', $ttrecord);
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -1010,10 +1129,10 @@ class wdsprefs {
             // Create a group for this section.
             $groupid = self::create_crosssplit_group($crosssplit->moodle_course_id, $section);
 
-            // Assign the section to the new course shell id.
-            $DB->set_field($stable, 'moodle_status', $crosssplit->moodle_course_id,
-                ['id' => $section->id]
-            );
+            // Assign the section to the new course shell id and sync idnumber from the course.
+            $section->moodle_status = $crosssplit->moodle_course_id;
+            $section->idnumber = $courseidnumber;
+            $DB->update_record($stable, $section);
 
             $senrollsql = "SELECT * FROM {enrol_wds_student_enroll}
                 WHERE section_listing_id = :slid
@@ -1321,8 +1440,10 @@ class wdsprefs {
                 } elseif (is_array($data) && isset($data[$shellnamefield])) {
                     $customname = trim($data[$shellnamefield]);
                 }
-                $customname = core_text::substr($customname, 0, 64);
-                if ($customname !== '' && !preg_match('/^[a-zA-Z0-9_ -]+$/', $customname)) {
+                // Normalize using helper.
+                $customname = \block_wdsprefs\shell_tag_helper::normalize($customname);
+                // Validate format using helper.
+                if ($customname !== '' && !\block_wdsprefs\shell_tag_helper::validate_format($customname)) {
                     throw new \core\exception\invalid_parameter_exception(
                         get_string('wdsprefs:shelltaginvalid', 'block_wdsprefs')
                     );
