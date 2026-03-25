@@ -158,35 +158,25 @@ class crosssplit_form extends moodleform {
                     $label . '</option>');
 
             } else {
-
-                // Check for team teach for any section in this shell.
-                $ttcstatus = block_wdsprefs_teamteach::check_shell_section_status($value, $USER->id);
-
-                if (!$ttcstatus['available']) {
-                    $ttsstatus = $ttcstatus;
-                } else {
-                    // Check for team teach for this section.
-                    $ttsstatus = block_wdsprefs_teamteach::check_section_status($value, $USER->id);
-                }
-
-                if (!$ttsstatus['available']) {
+                $ttstatus = block_wdsprefs_teamteach::check_section_status($value, $USER->id);
+                if (!$ttstatus['available']) {
                      $original_label = $label;
-                     $label .= ' (' . $ttsstatus['message'] . ')';
+                     $label .= ' (' . $ttstatus['message'] . ')';
                      $disabled = 'disabled="disabled"';
 
                      $link = '';
-                     if (!empty($ttsstatus['request_id'])) {
-                         $url = new moodle_url('/blocks/wdsprefs/teamteach_sections.php', ['request_id' => $ttsstatus['request_id']]);
+                     if (!empty($ttstatus['request_id'])) {
+                         $url = new moodle_url('/blocks/wdsprefs/teamteach_sections.php', ['request_id' => $ttstatus['request_id']]);
                          $link = html_writer::link($url, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
-                     } elseif (!empty($ttsstatus['crosssplit_id'])) {
-                         $url = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $ttsstatus['crosssplit_id']]);
+                     } elseif (!empty($ttstatus['crosssplit_id'])) {
+                         $url = new moodle_url('/blocks/wdsprefs/crosssplit_sections.php', ['id' => $ttstatus['crosssplit_id']]);
                          $link = html_writer::link($url, get_string('wdsprefs:viewsections', 'block_wdsprefs'), ['target' => '_blank']);
                      }
 
                      if ($link) {
-                         $unavailable_links[] = $original_label . ': ' . $ttsstatus['message'] . ' ' . $link;
+                         $unavailable_links[] = $original_label . ': ' . $ttstatus['message'] . ' ' . $link;
                      } else {
-                         $unavailable_links[] = $original_label . ': ' . $ttsstatus['message'];
+                         $unavailable_links[] = $original_label . ': ' . $ttstatus['message'];
                      }
                 } else {
                      $disabled = '';
