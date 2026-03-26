@@ -2914,7 +2914,7 @@ class wdsprefs {
                 LEFT JOIN {enrol_wds_teachers} tea
                     ON tea.universal_id = tenr.universal_id
                 LEFT JOIN {course} c
-                    O sec.idnumber
+                    ON c.idnumber = sec.idnumber
                     AND sec.idnumber IS NOT NULL
                     AND c.idnumber != ''
                 LEFT JOIN {enrol_wds_section_meta} secm
